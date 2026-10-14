@@ -38,6 +38,7 @@ def fetch_reddit_posts(subreddit: str = "Scams", limit: int = 15) -> List[Dict[s
             raw_html = content_tag.text if content_tag else ""
             content_soup = BeautifulSoup(raw_html, "html.parser")
             clean_text = content_soup.get_text(separator=" ", strip=True)
+            full_text = f"{title}. {clean_text}" if clean_text else title
             updated_tag = e.find("updated") or e.find("published")
             pub_time = updated_tag.text.strip() if updated_tag and updated_tag.text else None
             
