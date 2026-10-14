@@ -92,6 +92,13 @@ export const apiService = {
       body: JSON.stringify({ limit }),
     }),
 
+  // Unified Multi-Platform Scraper (Instagram, Facebook, Open Web)
+  triggerScrape: (platform = 'all', keywords = null, limit = 5) =>
+    request('/ingestion/scrape', {
+      method: 'POST',
+      body: JSON.stringify({ platform, keywords, limit }),
+    }),
+
   // Live Inspection
   inspectAd: async (formData) => {
     const res = await fetch(`${API_BASE}/analysis/inspect`, {

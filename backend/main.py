@@ -355,10 +355,26 @@ def delete_from_watchlist(entry_id: str):
     execute("DELETE FROM watchlist_entries WHERE id = %s", (entry_id,))
     return {"id": entry_id, "deleted": True}
 
-# 8. Live Ingestion Trigger
+from ingestion.apify_unified import run_unified_scrape
+
+class ScrapeRequest(BaseModel):
+    platform: Optional[str] = "all"
+    keywords: Optional[List[str]] = None
+    limit: Optional[int] = 5
+
+# 8. Live Ingestion Triggers
 @app.post("/api/v1/ingestion/sync")
 def trigger_ingestion(body: IngestRequest):
     result = ingest_reddit_feed(limit=body.limit or 10)
+    return result
+
+@app.post("/api/v1/ingestion/scrape")
+def trigger_scrape(body: ScrapeRequest):
+    result = run_unified_scrape(
+        platform=body.platform or "all",
+        keywords=body.keywords,
+        limit=body.limit or 5
+    )
     return result
 
 if __name__ == "__main__":

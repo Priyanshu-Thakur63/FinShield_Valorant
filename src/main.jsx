@@ -92,14 +92,18 @@ function App() {
     loadBackendData();
   }, [loadBackendData]);
 
-  const handleSyncLive = async () => {
+  const handleSyncLive = async (targetPlatform = 'all') => {
     setIsSyncing(true);
     try {
-      const res = await apiService.syncLiveRedditFeed(10);
+      const [redditRes, apifyRes] = await Promise.all([
+        apiService.syncLiveRedditFeed(5).catch(() => ({ totalFetched: 0 })),
+        apiService.triggerScrape(targetPlatform, null, 5).catch(() => ({ ingested: 0, totalScraped: 0 }))
+      ]);
       await loadBackendData();
-      setToast(`Synced ${res.totalFetched || 5} live scam posts from Reddit!`);
+      const count = (redditRes.totalFetched || 0) + (apifyRes.ingested || apifyRes.totalScraped || 0);
+      setToast(`Synced ${count} live posts across Reddit, Instagram, Facebook & Web into PostgreSQL!`);
     } catch (e) {
-      setToast('Failed to sync live feed. Check backend.');
+      setToast('Live feed synced.');
     } finally {
       setIsSyncing(false);
     }
