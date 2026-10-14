@@ -9,6 +9,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from database import get_db
 from pipeline.analyzer import analyze_text
 
+from dotenv import load_dotenv
+
+env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
+load_dotenv(dotenv_path=env_path)
+
 try:
     from apify_client import ApifyClient
 except ImportError:
