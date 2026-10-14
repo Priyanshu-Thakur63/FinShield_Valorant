@@ -74,6 +74,20 @@ def format_ad_record(row):
     """, (ad_id,))
     cluster_label = f"{camp['id']} · {camp['name']}" if camp else "No linked cluster"
 
+    p_low = (row["platform"] or "").lower()
+    if "telegram" in p_low:
+        initials, color = "TG", "telegram"
+    elif "instagram" in p_low:
+        initials, color = "IG", "instagram"
+    elif "facebook" in p_low:
+        initials, color = "f", "facebook"
+    elif "reddit" in p_low:
+        initials, color = "r/", "reddit"
+    elif "twitter" in p_low or "x" in p_low:
+        initials, color = "𝕏", "x"
+    else:
+        initials, color = "🌐", "web"
+
     return {
         "id": row["id"],
         "platform": row["platform"],
@@ -89,7 +103,9 @@ def format_ad_record(row):
         "cluster": cluster_label,
         "amount": row["asking_amount"] or "Not detected",
         "reviewStatus": row["review_status"] or "Needs review",
-        "isBookmarked": bool(row["is_bookmarked"])
+        "isBookmarked": bool(row["is_bookmarked"]),
+        "initials": initials,
+        "color": color
     }
 
 # ----------------- Endpoints -----------------

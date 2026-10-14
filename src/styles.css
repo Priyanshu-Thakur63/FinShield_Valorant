@@ -198,7 +198,7 @@ h1 span { color: #7d858c; font-weight: 500; }
 .ad-cell { min-width: 215px; display: flex; align-items: center; gap: 8px; }
 .platform-icon { width: 27px; height: 27px; flex: 0 0 auto; display: grid; place-items: center; border: 1px solid #353b43; border-radius: 6px; background: #222930; color: #dae0e4; font: 600 12px 'DM Sans', sans-serif; }
 .platform-icon.telegram { color: #8ed4fa; background: #182933; border-color: #2c4b5d; }.platform-icon.instagram { color: #f0a0c6; background: #30202b; border-color: #4b303f; }.platform-icon.facebook { color: #90baff; background: #1e2939; border-color: #303e53; }.platform-icon.x { color: #eee; background: #202327; }.platform-icon.x::first-letter { color: #fff; }
-.platform-icon.web { color: #c6d28d; background: #252a1d; border-color: #414a31; }
+.platform-icon.web { color: #c6d28d; background: #252a1d; border-color: #414a31; }.platform-icon.reddit { color: #ff6e40; background: #2f1910; border-color: #5d2c18; }
 .ad-copy { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
 .ad-copy b { color: #dfe2e3; font-size: 9px; font-weight: 600; }
 .ad-copy span { width: 200px; overflow: hidden; color: #8a9299; font-size: 8px; white-space: nowrap; text-overflow: ellipsis; }
