@@ -46,40 +46,56 @@ const phraseWeights = new Map([
   ['rent account', 32],
 ]);
 
-export async function analyzeAdvertisement({ text, platform, sourceUrl, ocrText = '' }) {
-  await new Promise((resolve) => window.setTimeout(resolve, 600));
-  const combined = `${text}\n${ocrText}`.trim();
-  const normalized = combined.toLowerCase();
-  const phrases = suspiciousPhrases.filter((phrase) => normalized.includes(phrase));
-  const score = Math.min(99, phrases.reduce((total, phrase) => total + (phraseWeights.get(phrase) || 15), 10));
-  const phones = combined.match(/(?:\+?\d[\d\s().-]{7,}\d)/g) || [];
-  const urls = [sourceUrl, ...(combined.match(/(?:https?:\/\/|www\.)[^\s]+/gi) || [])]
-    .map((value) => value.trim())
-    .filter(Boolean);
-  const upiIds = combined.match(/\b[a-z0-9._-]+@[a-z][a-z0-9-]*\b/gi) || [];
-  const risk = score >= 70 ? 'Critical' : score >= 50 ? 'High' : score >= 25 ? 'Medium' : 'Low';
+import { extractEntitiesAndIndicators } from './entityExtractionService.js';
+import { categorizeAndScoreThreat } from './threatClassificationService.js';
 
-  let explanation = '';
-  if (phrases.length) {
-    explanation = `Detected ${phrases.length} high-risk phrase(s) associated with mule bank account trading and illicit financial networks.`;
-    if (ocrText) {
-      explanation += ` Live OCR extracted text from the attached screenshot banner and contributed to the risk score.`;
-    }
-  } else {
-    explanation = 'No overt high-risk financial fraud phrases detected in the current ruleset. Continue reviewing extracted indicators and context.';
-  }
+export async function analyzeAdvertisement({ text = '', platform = 'Telegram', sourceUrl = '', ocrText = '', phones: customPhones, upiIds: customUpiIds, urls: customUrls }) {
+  await new Promise((resolve) => setTimeout(resolve, 350));
+  const combined = `${text}\n${ocrText}`.trim();
+
+
+  // PIPELINE STEP 1: Entity & Indicator Extraction
+  const extracted = extractEntitiesAndIndicators(combined, sourceUrl);
+  const phones = customPhones || extracted.phones;
+  const upiIds = customUpiIds || extracted.upiIds;
+  const urls = customUrls || extracted.urls;
+  const telegramHandles = extracted.telegramHandles;
+  const detectedBanks = extracted.detectedBanks;
+  const amounts = extracted.amounts;
+
+  // PIPELINE STEP 2: Threat Categorization & Scoring Engine
+  const classification = categorizeAndScoreThreat({
+    text,
+    ocrText,
+    phones,
+    upiIds,
+    urls,
+    telegramHandles,
+    detectedBanks,
+  });
+
 
   return {
-    score,
-    risk,
+    score: classification.score,
+    risk: classification.risk,
+    confidence: classification.confidence,
+    primaryCategory: classification.primaryCategory,
+    primaryCategoryId: classification.primaryCategoryId,
+    categories: classification.categories,
     platform,
-    phrases,
+    phrases: classification.matchedPhrases,
     ocrText,
-    phones: [...new Set(phones.map((p) => p.trim()))],
-    urls: [...new Set(urls)],
-    upiIds: [...new Set(upiIds)],
-    explanation,
+    phones,
+    urls,
+    upiIds,
+    telegramHandles,
+    detectedBanks,
+    amounts,
+    evidence: classification.evidence,
+    explanation: classification.explanation,
     simulated: false,
   };
 }
+
+
 
