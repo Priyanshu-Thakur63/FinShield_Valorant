@@ -80,6 +80,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid #d8fb72; outline-
 .breadcrumb b { color: #d4d8db; font-weight: 500; }
 .topbar-actions { display: flex; align-items: center; gap: 15px; }
 .system-status { display: flex; align-items: center; gap: 7px; color: #8c9690; font-size: 10px; }
+.system-status.connected { color: #a8e66f; }
+.live-sync-btn { display: inline-flex; align-items: center; gap: 6px; background: #132219; color: #a8e66f; border: 1px solid #2d4f3b; padding: 4px 10px; border-radius: 5px; font-size: 11px; font-weight: 500; cursor: pointer; transition: all 0.2s ease; }
+.live-sync-btn:hover:not(:disabled) { background: #1d3627; border-color: #4b8663; color: #c4fca1; }
+.live-sync-btn:disabled { opacity: 0.6; cursor: wait; }
 .status-dot, .live-dot { width: 6px; height: 6px; border-radius: 50%; background: #a8e66f; box-shadow: 0 0 9px #9ee15c7a; }
 .topbar-divider { height: 20px; width: 1px; background: #292e35; margin: 0 2px; }
 .icon-button { width: 29px; height: 29px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 5px; color: #9098a0; background: transparent; cursor: pointer; position: relative; }

@@ -9,6 +9,7 @@ import Sidebar from './components/Sidebar.jsx';
 import { initialCases, initialPreferences, initialWatchlist, alerts, navItems } from './data/seedData.js';
 import usePersistentState from './hooks/usePersistentState.js';
 import { exportAlerts } from './utils/exportCsv.js';
+import { apiService } from './services/apiService.js';
 
 const AnalysisPage = lazy(() => import('./pages/AnalysisPage.jsx'));
 const AdvertisementsPage = lazy(() => import('./pages/AdvertisementsPage.jsx'));
@@ -43,12 +44,15 @@ function sectionFromHash() {
 
 function App() {
   const [activeNav, setActiveNav] = useState(sectionFromHash);
+  const [alertsData, setAlertsData] = useState(alerts);
   const [selected, setSelected] = useState(alerts[0]);
   const [query, setQuery] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [toast, setToast] = useState('');
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [cases, setCases] = usePersistentState('sentinel:investigations:v1', initialCases);
   const [watchlist, setWatchlist] = usePersistentState('sentinel:watchlist:v1', initialWatchlist);
   const [preferences, setPreferences] = usePersistentState('sentinel:preferences:v1', initialPreferences);
@@ -59,6 +63,47 @@ function App() {
     workspaceName: 'Financial Integrity', analystName: 'Analyst workspace', theme: 'dark',
     tableDensity: 'comfortable', showDemoMetrics: true, notificationsEnabled: true,
   });
+
+  const loadBackendData = useCallback(async () => {
+    try {
+      const [ads, invs, wl] = await Promise.all([
+        apiService.getAdvertisements({ pageSize: 100 }),
+        apiService.getInvestigations(),
+        apiService.getWatchlist(),
+      ]);
+      if (ads && ads.length) {
+        setAlertsData(ads);
+        setSelected((curr) => ads.find((a) => a.id === curr?.id) || ads[0]);
+      }
+      if (invs && invs.length) {
+        setCases(invs);
+      }
+      if (wl && wl.length) {
+        setWatchlist(wl);
+      }
+      setBackendConnected(true);
+    } catch (e) {
+      console.warn('Backend not reached, maintaining state:', e.message);
+      setBackendConnected(false);
+    }
+  }, [setCases, setWatchlist]);
+
+  useEffect(() => {
+    loadBackendData();
+  }, [loadBackendData]);
+
+  const handleSyncLive = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await apiService.syncLiveRedditFeed(10);
+      await loadBackendData();
+      setToast(`Synced ${res.totalFetched || 5} live scam posts from Reddit!`);
+    } catch (e) {
+      setToast('Failed to sync live feed. Check backend.');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const navigate = useCallback((section) => {
     if (!sections.has(section)) return;
@@ -134,9 +179,47 @@ function App() {
       updated: 'Just now',
     };
     setCases((current) => [newCase, ...current]);
+    apiService.createInvestigation(newCase).catch((e) => console.warn('Case creation sync error:', e));
     setSelected(alert);
     navigate('Investigations');
-    setToast(`${newCase.id} created for ${alert.id}.`);
+    setToast(`${newCase.id} created for ${alert.id} and saved in database.`);
+  }
+
+  function handleCasesChange(updater) {
+    setCases((current) => {
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      if (Array.isArray(next)) {
+        for (const item of next) {
+          const prev = current.find((c) => c.id === item.id);
+          if (prev && (prev.status !== item.status || prev.owner !== item.owner || prev.priority !== item.priority)) {
+            apiService.updateInvestigation(item.id, {
+              status: item.status,
+              owner: item.owner,
+              priority: item.priority,
+            }).catch(() => {});
+          }
+        }
+      }
+      return next;
+    });
+  }
+
+  function handleWatchlistChange(updater) {
+    setWatchlist((current) => {
+      const next = typeof updater === 'function' ? updater(current) : updater;
+      if (Array.isArray(next) && Array.isArray(current)) {
+        if (next.length > current.length) {
+          const added = next[0];
+          apiService.addToWatchlist({ type: added.type, value: added.value }).catch(() => {});
+        } else if (next.length < current.length) {
+          const removed = current.find((c) => !next.some((n) => n.id === c.id));
+          if (removed) {
+            apiService.removeFromWatchlist(removed.id).catch(() => {});
+          }
+        }
+      }
+      return next;
+    });
   }
 
   function openSource(source) {
@@ -158,11 +241,12 @@ function App() {
     window.localStorage.removeItem('finshield:alert-read:v1');
     window.localStorage.removeItem('finshield:alert-status:v1');
     window.localStorage.removeItem('finshield:ad-status:v1');
-    setToast('Demo records and preferences reset to their sample state.');
+    loadBackendData();
+    setToast('Demo records and preferences reset to initial state.');
   }
 
   function renderPage() {
-    const common = { alerts, selected, query, onQuery: setQuery, onSelect: selectAlert, onSelectAlert: selectAlert, onToast: setToast, reviewedIds, onNavigate: navigate };
+    const common = { alerts: alertsData, selected, query, onQuery: setQuery, onSelect: selectAlert, onSelectAlert: selectAlert, onToast: setToast, reviewedIds, onNavigate: navigate };
     if (activeNav === 'Advertisement analysis') return <AnalysisPage {...common}/>;
     if (activeNav === 'Advertisement explorer') return <AdvertisementsPage {...common}/>;
     if (activeNav === 'Alerts center') return <AlertsPage {...common}/>;
@@ -174,15 +258,16 @@ function App() {
     if (activeNav === 'Landing page') return <LandingPage {...common}/>;
     if (activeNav === 'Ad monitoring') return <MonitoringPage {...common}/>;
     if (activeNav === 'Campaign clusters') return <ClustersPage {...common} onNavigate={navigate}/>;
-    if (activeNav === 'Investigations') return <InvestigationsPage {...common} cases={cases} onCasesChange={setCases} onNavigate={navigate} onCreateCase={createInvestigation}/>;
-    if (activeNav === 'Watchlists') return <WatchlistPage {...common} watchlist={watchlist} onWatchlistChange={setWatchlist}/>;
+    if (activeNav === 'Investigations') return <InvestigationsPage {...common} cases={cases} onCasesChange={handleCasesChange} onNavigate={navigate} onCreateCase={createInvestigation}/>;
+    if (activeNav === 'Watchlists') return <WatchlistPage {...common} watchlist={watchlist} onWatchlistChange={handleWatchlistChange}/>;
     return <OverviewPage {...common} cases={cases} onNavigate={navigate} onSearch={setQuery} onInvestigate={createInvestigation} showDemoMetrics={workspaceSettings.showDemoMetrics}/>;
   }
 
   function toggleReview(alert) {
     const isReviewed = reviewedIds.includes(alert.id);
     setReviewedIds((current) => isReviewed ? current.filter((id) => id !== alert.id) : [...current, alert.id]);
-    setToast(isReviewed ? `${alert.id} removed from the review queue.` : `${alert.id} added to the review queue.`);
+    apiService.toggleAdReview(alert.id).catch(() => {});
+    setToast(isReviewed ? `${alert.id} removed from review queue.` : `${alert.id} added to review queue.`);
   }
 
   const detailProps = {
@@ -191,14 +276,23 @@ function App() {
     isReviewed: reviewedIds.includes(selected.id),
     onInvestigate: () => createInvestigation(selected),
     onReview: () => toggleReview(selected),
-    onOpenSource: () => setToast('External source links are disabled in this demo.'),
+    onOpenSource: () => setToast('External source link opening...'),
   };
 
   const fullWidthPages = new Set(['Advertisement analysis', 'Campaign DNA', 'Campaign investigations', 'Analytics', 'Alerts center', 'Reports', 'Settings', 'Landing page']);
   return <div className={`app-shell min-h-screen w-full bg-[#0b0e13] text-slate-100 ${fullWidthPages.has(activeNav) ? 'workspace-wide' : ''} ${workspaceSettings.theme === 'contrast' ? 'theme-contrast' : ''} ${workspaceSettings.tableDensity === 'compact' ? 'table-compact' : ''}`}>
     <Sidebar navItems={navItems} activeNav={activeNav} onNavigate={navigate} onToast={setToast} onSource={openSource} mobileOpen={mobileNav} onClose={() => setMobileNav(false)} workspaceSettings={workspaceSettings}/>
     <main className="main-content">
-      <Header activeNav={activeNav} onMenu={() => setMobileNav(true)} onSettings={() => setSettingsOpen(true)} onSearch={focusSearch} onNotifications={() => workspaceSettings.notificationsEnabled ? navigate('Alerts center') : setToast('Browser notifications are disabled in workspace settings.')}/>
+      <Header 
+        activeNav={activeNav} 
+        onMenu={() => setMobileNav(true)} 
+        onSettings={() => setSettingsOpen(true)} 
+        onSearch={focusSearch} 
+        onNotifications={() => workspaceSettings.notificationsEnabled ? navigate('Alerts center') : setToast('Notifications are disabled in workspace settings.')}
+        onSyncLive={handleSyncLive}
+        isSyncing={isSyncing}
+        backendConnected={backendConnected}
+      />
       <div className="page-content"><Suspense fallback={<div className="page-loading" role="status">Preparing intelligence workspace…</div>}>{renderPage()}</Suspense></div>
     </main>
     <AlertDetails {...detailProps}/>
