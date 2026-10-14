@@ -403,8 +403,14 @@ class ScrapeRequest(BaseModel):
 # 8. Live Ingestion Triggers
 @app.post("/api/v1/ingestion/sync")
 def trigger_ingestion(body: IngestRequest):
-    result = ingest_reddit_feed(limit=body.limit or 10)
-    return result
+    reddit_res = ingest_reddit_feed(limit=body.limit or 10)
+    unified_res = run_unified_scrape(platform="all", limit=5)
+    return {
+        "status": "success",
+        "reddit": reddit_res,
+        "unified": unified_res,
+        "totalFetched": (reddit_res.get("total_fetched", 0) + unified_res.get("ingested", 0))
+    }
 
 @app.post("/api/v1/ingestion/scrape")
 def trigger_scrape(body: ScrapeRequest):
