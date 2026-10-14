@@ -44,8 +44,8 @@ function sectionFromHash() {
 
 function App() {
   const [activeNav, setActiveNav] = useState(sectionFromHash);
-  const [alertsData, setAlertsData] = useState(alerts);
-  const [selected, setSelected] = useState(alerts[0]);
+  const [alertsData, setAlertsData] = useState([]);
+  const [selected, setSelected] = useState(null);
   const [query, setQuery] = useState('');
   const [mobileNav, setMobileNav] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -74,6 +74,9 @@ function App() {
       if (ads && ads.length) {
         setAlertsData(ads);
         setSelected((curr) => ads.find((a) => a.id === curr?.id) || ads[0]);
+      } else {
+        setAlertsData([]);
+        setSelected(null);
       }
       if (invs && invs.length) {
         setCases(invs);

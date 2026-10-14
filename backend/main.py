@@ -88,12 +88,31 @@ def format_ad_record(row):
     else:
         initials, color = "🌐", "web"
 
+    # Format authentic live timestamp
+    created_dt = row.get("created_at") or row.get("posted_at")
+    if created_dt and isinstance(created_dt, datetime.datetime):
+        time_display = created_dt.strftime("%d %b %Y, %H:%M:%S")
+        iso_timestamp = created_dt.isoformat()
+    elif row.get("time_label"):
+        time_display = str(row["time_label"])
+        iso_timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    else:
+        time_display = "Live record"
+        iso_timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+    posted_dt = row.get("posted_at")
+    posted_iso = posted_dt.isoformat() if isinstance(posted_dt, datetime.datetime) else iso_timestamp
+    created_iso = created_dt.isoformat() if isinstance(created_dt, datetime.datetime) else iso_timestamp
+
     return {
         "id": row["id"],
         "platform": row["platform"],
         "handle": row["author_handle"] or "@unknown",
         "text": row["content_text"],
-        "time": row["time_label"] or "Recently",
+        "time": time_display,
+        "timestamp": iso_timestamp,
+        "posted_at": posted_iso,
+        "created_at": created_iso,
         "confidence": row["confidence_score"],
         "risk": row["risk_level"],
         "tags": tags or ["General financial promotion"],
@@ -169,7 +188,7 @@ def list_advertisements(
         sql += " AND risk_level = %s"
         params.append(risk.lower())
 
-    sql += " ORDER BY posted_at DESC"
+    sql += " ORDER BY COALESCE(created_at, posted_at) DESC, id DESC"
     rows = query_all(sql, params)
     
     # Format for frontend
@@ -217,9 +236,10 @@ async def inspect_advertisement(
 @app.get("/api/v1/alerts")
 def list_alerts():
     rows = query_all("""
-        SELECT a.id, a.title, a.description, a.severity, a.triage_status, a.is_read,
+        SELECT a.id, a.title, a.description, a.severity, a.triage_status, a.is_read, a.created_at as alert_created_at,
                ad.id as ad_id, ad.platform, ad.author_handle, ad.content_text, ad.risk_level,
-               ad.confidence_score, ad.time_label, ad.asking_amount, ad.source_url
+               ad.confidence_score, ad.time_label, ad.asking_amount, ad.source_url,
+               ad.created_at, ad.posted_at
         FROM alerts a
         JOIN advertisements ad ON ad.id = a.advertisement_id
         ORDER BY a.created_at DESC
@@ -231,15 +251,17 @@ def list_alerts():
             "content_text": r["content_text"], "time_label": r["time_label"],
             "confidence_score": r["confidence_score"], "risk_level": r["risk_level"],
             "asking_amount": r["asking_amount"], "source_url": r["source_url"],
-            "review_status": r["triage_status"], "is_bookmarked": False
+            "review_status": r["triage_status"], "is_bookmarked": False,
+            "created_at": r["created_at"], "posted_at": r["posted_at"]
         })
+        time_str = r["alert_created_at"].strftime("%d %b %Y, %H:%M:%S") if r.get("alert_created_at") and isinstance(r["alert_created_at"], datetime.datetime) else (r["time_label"] or "Recently")
         alerts.append({
             "id": r["id"],
             "alert": formatted_ad,
             "severity": r["severity"],
             "title": r["title"],
             "description": r["description"],
-            "timestamp": r["time_label"] or "Recently",
+            "timestamp": time_str,
             "isRead": bool(r["is_read"]),
             "status": r["triage_status"]
         })

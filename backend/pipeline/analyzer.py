@@ -25,6 +25,16 @@ SUSPICIOUS_PHRASES = {
     'without cibil': 28,
     'instant loan': 20,
     'telegram for details': 15,
+    'investment scam': 35,
+    'scam': 22,
+    'phishing': 26,
+    'fraud': 28,
+    'wire transfer': 24,
+    'unauthorized transaction': 30,
+    'transfers out of my bank': 32,
+    'gift card': 25,
+    'fake email': 22,
+    'crypto': 15,
 }
 
 TAG_RULES = [
@@ -34,6 +44,9 @@ TAG_RULES = [
     (['no paperwork', 'without pan', 'without cibil'], 'No paperwork KYC bypass'),
     (['earn up to', 'daily return', 'guaranteed profit', 'part-time task', 'crypto task'], 'Account recruitment / Task scam'),
     (['instant loan', 'personal loan assistance'], 'Unverified loan assistance'),
+    (['investment scam', 'scam', 'fraud', 'phishing'], 'Fraud & Scam Scheme'),
+    (['transfers out of my bank', 'wire transfer', 'unauthorized transaction'], 'Unauthorized Transfer / Theft'),
+    (['gift card'], 'Gift Card Payment Coercion'),
 ]
 
 def analyze_text(text: str, platform: str = "Unknown", source_url: str = "") -> Dict[str, Any]:

@@ -38,14 +38,16 @@ def fetch_reddit_posts(subreddit: str = "Scams", limit: int = 15) -> List[Dict[s
             raw_html = content_tag.text if content_tag else ""
             content_soup = BeautifulSoup(raw_html, "html.parser")
             clean_text = content_soup.get_text(separator=" ", strip=True)
-            full_text = f"{title}. {clean_text}"
+            updated_tag = e.find("updated") or e.find("published")
+            pub_time = updated_tag.text.strip() if updated_tag and updated_tag.text else None
             
             results.append({
                 "title": title,
                 "author": author,
                 "link": link,
                 "text": full_text[:4000],
-                "subreddit": subreddit
+                "subreddit": subreddit,
+                "timestamp": pub_time
             })
         return results
     except Exception as e:
@@ -79,17 +81,27 @@ def ingest_reddit_feed(limit: int = 15) -> Dict[str, Any]:
                     amounts = re.findall(r'(?:₹|\$|rs\.?|inr|usd)\s*[\d,]+(?:\.\d+)?|\b\d+k\b', post["text"], re.IGNORECASE)
                     amount_str = amounts[0] if amounts else "Not detected"
                     
+                    now_utc = datetime.datetime.now(datetime.timezone.utc)
+                    posted_dt = now_utc
+                    if post.get("timestamp"):
+                        try:
+                            posted_dt = datetime.datetime.fromisoformat(post["timestamp"].replace("Z", "+00:00"))
+                        except Exception:
+                            posted_dt = now_utc
+
+                    time_label = posted_dt.strftime("%d %b %Y, %H:%M:%S UTC")
+
                     # Insert Advertisement
                     cur.execute("""
                         INSERT INTO advertisements (
                             id, workspace_id, platform, author_handle, content_text,
                             source_url, asking_amount, risk_level, confidence_score,
-                            review_status, time_label, posted_at
-                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            review_status, time_label, posted_at, created_at
+                        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     """, (
-                        ad_id, "WS-001", f"Reddit", post["author"], post["text"],
+                        ad_id, "WS-001", "Reddit", post["author"], post["text"],
                         post["link"], amount_str, analysis["risk"], analysis["score"],
-                        "Needs review", "Live feed", datetime.datetime.now(datetime.timezone.utc)
+                        "Needs review", time_label, posted_dt, now_utc
                     ))
                     
                     # Insert Extracted Indicators

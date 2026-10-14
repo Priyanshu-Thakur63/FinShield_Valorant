@@ -8,7 +8,6 @@ from typing import List, Dict, Any, Optional
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from database import get_db
 from pipeline.analyzer import analyze_text
-
 from dotenv import load_dotenv
 
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".env"))
@@ -37,139 +36,151 @@ def get_apify_client() -> Optional[Any]:
 
 def scrape_instagram(client: Optional[Any], keywords: List[str], limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Scrapes Instagram posts/hashtags using Apify Actor 'apify/instagram-scraper'
-    Falls back to realistic high-fidelity items if API token is not yet configured.
+    Scrapes live Instagram posts/hashtags using Apify Actor 'apify/instagram-scraper'.
+    No hardcoded mock data: only returns genuine live scraped records.
     """
     results = []
-    if client:
-        try:
-            # Apify Instagram Scraper Actor
-            run_input = {
-                "search": keywords[0] if keywords else "instant loan india",
-                "searchType": "hashtag",
-                "resultsLimit": limit,
-            }
-            run = client.actor("apify/instagram-scraper").call(run_input=run_input, timeout_secs=120)
-            dataset = client.dataset(run["defaultDatasetId"])
-            for item in dataset.iterate_items():
-                caption = item.get("caption") or item.get("text") or ""
-                if not caption:
-                    continue
-                results.append({
-                    "platform": "Instagram",
-                    "handle": f"@{item.get('ownerUsername', 'insta_user')}",
-                    "text": caption[:3000],
-                    "url": item.get("url") or f"https://instagram.com/p/{item.get('shortCode', '')}",
-                    "media_url": item.get("displayUrl")
-                })
-            return results
-        except Exception as e:
-            print(f"[Apify Instagram] Error: {e}, using live fallback simulator.")
+    if not client:
+        print("[Apify Instagram] Client not configured. Skipping Instagram live scrape.")
+        return results
 
-    # High-fidelity realistic stream for Instagram financial advertisements
-    sample_templates = [
-        ("Current accounts with active chequebook delivered in 24 hours. No paperwork or verification needed. DM @finserve_insta or WhatsApp +91 88220 19996 for quick cash setup. #loan #currentaccount", "finserve_connect_ig", "https://instagram.com/p/C4829faFin"),
-        ("Need fast financial liquidity? Sell your unused savings account and earn up to ₹18,000 weekly commission. Instant UPI payout guaranteed! #bankaccount #workfromhome", "instant_payout_hub", "https://instagram.com/p/C9912baMule"),
-        ("Personal loans up to 2 Lakhs approved within 15 minutes! No CIBIL score required. Send bank statement on wa.me/919988776655. #instantloan #nocibil", "quick_cash_india_24", "https://instagram.com/p/C1123faLoan"),
-    ]
-    for text, handle, url in sample_templates[:limit]:
-        results.append({
-            "platform": "Instagram",
-            "handle": f"@{handle}",
-            "text": text,
-            "url": url,
-            "media_url": None
-        })
-    return results
+    try:
+        search_term = keywords[0] if keywords else "instant loan india"
+        run_input = {
+            "search": search_term,
+            "searchType": "hashtag",
+            "resultsLimit": limit,
+        }
+        print(f"[Apify Instagram] Launching actor 'apify/instagram-scraper' with term: {search_term}...")
+        run = client.actor("apify/instagram-scraper").call(
+            run_input=run_input,
+            wait_duration=datetime.timedelta(seconds=90)
+        )
+        dataset_id = getattr(run, "default_dataset_id", None) or (run.get("defaultDatasetId") if isinstance(run, dict) else None)
+        if not dataset_id:
+            print("[Apify Instagram] No dataset generated from run.")
+            return results
+
+        dataset = client.dataset(dataset_id)
+        for item in dataset.iterate_items():
+            caption = item.get("caption") or item.get("text") or item.get("name") or ""
+            if not caption:
+                continue
+            ts = item.get("timestamp") or item.get("takenAtTimestamp") or item.get("publishedAt")
+            results.append({
+                "platform": "Instagram",
+                "handle": f"@{item.get('ownerUsername', item.get('id', 'insta_user'))}",
+                "text": caption[:3000],
+                "url": item.get("url") or f"https://instagram.com/p/{item.get('shortCode', item.get('id', uuid.uuid4().hex[:6]))}",
+                "media_url": item.get("displayUrl"),
+                "timestamp": ts
+            })
+        print(f"[Apify Instagram] Scraped {len(results)} live Instagram posts.")
+        return results
+    except Exception as e:
+        print(f"[Apify Instagram] Live scraper error: {e}")
+        return results
 
 def scrape_facebook(client: Optional[Any], keywords: List[str], limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Scrapes Facebook public posts/pages using Apify Actor 'apify/facebook-posts-scraper'
+    Scrapes live Facebook public posts/pages using Apify Actor 'apify/facebook-posts-scraper'.
+    No hardcoded mock data: only returns genuine live scraped records.
     """
     results = []
-    if client:
-        try:
-            run_input = {
-                "startUrls": [{"url": f"https://www.facebook.com/search/posts/?q={k}"} for k in keywords[:2]],
-                "maxPosts": limit,
-            }
-            run = client.actor("apify/facebook-posts-scraper").call(run_input=run_input, timeout_secs=120)
-            dataset = client.dataset(run["defaultDatasetId"])
-            for item in dataset.iterate_items():
-                post_text = item.get("text") or item.get("postText") or ""
-                if not post_text:
-                    continue
-                results.append({
-                    "platform": "Facebook",
-                    "handle": item.get("user", {}).get("name") or "Easy Finance Group",
-                    "text": post_text[:3000],
-                    "url": item.get("url") or "https://facebook.com/groups/easyfinance",
-                    "media_url": None
-                })
-            return results
-        except Exception as e:
-            print(f"[Apify Facebook] Error: {e}, using live fallback simulator.")
+    if not client:
+        print("[Apify Facebook] Client not configured. Skipping Facebook live scrape.")
+        return results
 
-    sample_fb = [
-        ("Debit card with active netbanking kit. Sell your unused bank accounts and earn up to 15k today! Direct DM or WhatsApp +91 70118 64449. Immediate RTGS/NEFT settlement.", "Easy Finance Community", "https://facebook.com/groups/easyfinance/posts/101"),
-        ("Pre-activated ATM cards with full PIN and registered SIM card available. Encrypted payment accepted. Limited stock for urgent business liquidity.", "Card Market India", "https://facebook.com/groups/cardmarket/posts/204"),
-    ]
-    for text, handle, url in sample_fb[:limit]:
-        results.append({
-            "platform": "Facebook",
-            "handle": handle,
-            "text": text,
-            "url": url,
-            "media_url": None
-        })
-    return results
+    try:
+        urls = [f"https://www.facebook.com/search/posts/?q={k}" for k in keywords[:2]]
+        run_input = {
+            "startUrls": [{"url": u} for u in urls],
+            "maxPosts": limit,
+        }
+        print(f"[Apify Facebook] Launching actor 'apify/facebook-posts-scraper'...")
+        run = client.actor("apify/facebook-posts-scraper").call(
+            run_input=run_input,
+            wait_duration=datetime.timedelta(seconds=90)
+        )
+        dataset_id = getattr(run, "default_dataset_id", None) or (run.get("defaultDatasetId") if isinstance(run, dict) else None)
+        if not dataset_id:
+            print("[Apify Facebook] No dataset generated from run.")
+            return results
+
+        dataset = client.dataset(dataset_id)
+        for item in dataset.iterate_items():
+            post_text = item.get("text") or item.get("postText") or ""
+            if not post_text:
+                continue
+            user_info = item.get("user")
+            author_name = user_info.get("name") if isinstance(user_info, dict) else (item.get("authorName") or "Facebook User")
+            ts = item.get("time") or item.get("date") or item.get("timestamp")
+            results.append({
+                "platform": "Facebook",
+                "handle": author_name,
+                "text": post_text[:3000],
+                "url": item.get("url") or f"https://facebook.com/posts/{uuid.uuid4().hex[:8]}",
+                "media_url": None,
+                "timestamp": ts
+            })
+        print(f"[Apify Facebook] Scraped {len(results)} live Facebook posts.")
+        return results
+    except Exception as e:
+        print(f"[Apify Facebook] Live scraper error: {e}")
+        return results
 
 def scrape_public_websites(client: Optional[Any], keywords: List[str], limit: int = 10) -> List[Dict[str, Any]]:
     """
-    Scrapes Public Web / Financial Landing Pages using Apify Actor 'apify/website-content-crawler'
+    Scrapes live public financial websites using Apify Actor 'apify/website-content-crawler'.
+    No hardcoded mock data: only returns genuine live scraped records.
     """
     results = []
-    if client:
-        try:
-            run_input = {
-                "startUrls": [{"url": "https://pastebin.com/archive"}],
-                "maxCrawlPages": limit,
-            }
-            run = client.actor("apify/website-content-crawler").call(run_input=run_input, timeout_secs=120)
-            dataset = client.dataset(run["defaultDatasetId"])
-            for item in dataset.iterate_items():
-                body = item.get("text") or item.get("markdown") or ""
-                if not body:
-                    continue
-                results.append({
-                    "platform": "Open web",
-                    "handle": item.get("metadata", {}).get("title") or "Web Promotion",
-                    "text": body[:3000],
-                    "url": item.get("url") or "https://premium-card-market.example",
-                    "media_url": None
-                })
-            return results
-        except Exception as e:
-            print(f"[Apify Web] Error: {e}, using live fallback simulator.")
+    if not client:
+        print("[Apify Web] Client not configured. Skipping Web live scrape.")
+        return results
 
-    sample_web = [
-        ("Pre-activated credit and ATM cards available with linked corporate bank account access. Encrypted USDT payment accepted. Contact telegram @premium_cards_hub or email quickcash@upi.", "premium-card-market", "https://premium-card-market.example/offer"),
-        ("FastTrack financial services: open business current accounts without physical verification or PAN. Instant activation.", "fasttrack-accounts", "https://fasttrack-accounts.example/apply")
-    ]
-    for text, handle, url in sample_web[:limit]:
-        results.append({
-            "platform": "Open web",
-            "handle": handle,
-            "text": text,
-            "url": url,
-            "media_url": None
-        })
-    return results
+    try:
+        search_query = keywords[0] if keywords else "instant loan without pan card upi"
+        run_input = {
+            "startUrls": [{"url": f"https://duckduckgo.com/html/?q={search_query}"}],
+            "maxCrawlPages": limit,
+        }
+        print(f"[Apify Web] Launching actor 'apify/website-content-crawler'...")
+        run = client.actor("apify/website-content-crawler").call(
+            run_input=run_input,
+            wait_duration=datetime.timedelta(seconds=90)
+        )
+        dataset_id = getattr(run, "default_dataset_id", None) or (run.get("defaultDatasetId") if isinstance(run, dict) else None)
+        if not dataset_id:
+            print("[Apify Web] No dataset generated from run.")
+            return results
+
+        dataset = client.dataset(dataset_id)
+        for item in dataset.iterate_items():
+            body = item.get("text") or item.get("markdown") or ""
+            if not body or len(body.strip()) < 20:
+                continue
+            metadata = item.get("metadata")
+            title = metadata.get("title") if isinstance(metadata, dict) else "Public Web Portal"
+            ts = item.get("crawledAt") or item.get("loadedAt")
+            results.append({
+                "platform": "Open web",
+                "handle": title[:50] or "Web Source",
+                "text": body[:3000],
+                "url": item.get("url") or f"https://web-source-{uuid.uuid4().hex[:6]}.org",
+                "media_url": None,
+                "timestamp": ts
+            })
+        print(f"[Apify Web] Scraped {len(results)} live web pages.")
+        return results
+    except Exception as e:
+        print(f"[Apify Web] Live scraper error: {e}")
+        return results
 
 def run_unified_scrape(platform: str = "all", keywords: Optional[List[str]] = None, limit: int = 5) -> Dict[str, Any]:
     """
     Unified multi-platform ingestion engine.
-    Scrapes chosen platform(s), analyzes indicators, and writes to PostgreSQL.
+    Scrapes chosen platform(s), analyzes indicators, and writes live records to PostgreSQL with timestamps.
     """
     client = get_apify_client()
     query_keywords = keywords or DEFAULT_KEYWORDS
@@ -207,17 +218,34 @@ def run_unified_scrape(platform: str = "all", keywords: Optional[List[str]] = No
                 amounts = re.findall(r'(?:₹|\$|rs\.?|inr|usd)\s*[\d,]+(?:\.\d+)?|\b\d+k\b', item["text"], re.IGNORECASE)
                 amount_str = amounts[0] if amounts else "Not detected"
 
-                # Store Advertisement
+                # Parse live timestamp
+                now_utc = datetime.datetime.now(datetime.timezone.utc)
+                posted_dt = now_utc
+                if item.get("timestamp"):
+                    try:
+                        raw_ts = item["timestamp"]
+                        if isinstance(raw_ts, (int, float)):
+                            if raw_ts > 1e11:
+                                raw_ts = raw_ts / 1000.0
+                            posted_dt = datetime.datetime.fromtimestamp(raw_ts, tz=datetime.timezone.utc)
+                        elif isinstance(raw_ts, str):
+                            posted_dt = datetime.datetime.fromisoformat(raw_ts.replace("Z", "+00:00"))
+                    except Exception:
+                        posted_dt = now_utc
+
+                time_label = posted_dt.strftime("%d %b %Y, %H:%M:%S UTC")
+
+                # Store Advertisement with authentic live timestamps
                 cur.execute("""
                     INSERT INTO advertisements (
                         id, workspace_id, platform, author_handle, content_text,
                         source_url, asking_amount, risk_level, confidence_score,
-                        review_status, time_label, posted_at
-                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        review_status, time_label, posted_at, created_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """, (
                     ad_id, "WS-001", item["platform"], item["handle"], item["text"],
                     source_url, amount_str, analysis["risk"], analysis["score"],
-                    "Needs review", "Live Apify Scraper", datetime.datetime.now(datetime.timezone.utc)
+                    "Needs review", time_label, posted_dt, now_utc
                 ))
 
                 # Store Extracted Indicators
@@ -274,8 +302,8 @@ def run_unified_scrape(platform: str = "all", keywords: Optional[List[str]] = No
         "totalScraped": len(scraped_posts),
         "ingested": ingested_count,
         "flagged": flagged_count,
-        "mode": "Apify Cloud" if client else "Apify Engine (Smart Fallback)",
-        "timestamp": datetime.datetime.now().isoformat()
+        "mode": "Apify Cloud Live",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
     }
 
 if __name__ == "__main__":

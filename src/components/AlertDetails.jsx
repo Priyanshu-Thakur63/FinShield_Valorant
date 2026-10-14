@@ -3,6 +3,15 @@ import Icon from './Icon.jsx';
 import { PlatformIcon, RiskPill } from './shared.jsx';
 
 export default function AlertDetails({ alert, onInvestigate, onReview, onOpenSource, preferences, isReviewed }) {
+  if (!alert) {
+    return (
+      <aside className="detail-panel">
+        <div className="detail-topline"><span className="section-kicker">ALERT DETAILS</span></div>
+        <p className="detail-summary" style={{ marginTop: '20px', color: '#889282' }}>Select an advertisement record to inspect live forensic evidence.</p>
+      </aside>
+    );
+  }
+
   const maskedPhone = preferences.maskSensitiveData || !alert.phone.includes('•')
     ? alert.phone
     : 'Unavailable · source was masked';
