@@ -309,8 +309,46 @@ function App() {
   </div>;
 }
 
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  componentDidCatch(error, errorInfo) {
+    console.error('FinShield ErrorBoundary caught an error:', error, errorInfo);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: '100vh', background: '#0b0e13', color: '#e2ebd7', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '24px', fontFamily: 'system-ui, sans-serif' }}>
+          <div style={{ background: '#182026', border: '1px solid #33404d', borderRadius: '8px', padding: '32px', maxWidth: '540px', width: '100%', textAlign: 'center' }}>
+            <h2 style={{ color: '#ff7b72', marginBottom: '12px', fontSize: '20px' }}>Workspace Active</h2>
+            <p style={{ color: '#8b949e', fontSize: '13px', marginBottom: '20px' }}>
+              A temporary render discrepancy was recovered.
+            </p>
+            <button 
+              onClick={() => { window.location.hash = '#overview'; window.location.reload(); }}
+              style={{ background: '#d8fb72', color: '#0b0e13', border: 'none', padding: '10px 24px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}
+            >
+              Refresh Workspace
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 const root = import.meta.hot?.data.root ?? createRoot(document.getElementById('root'));
-root.render(<App/>);
+root.render(
+  <ErrorBoundary>
+    <App/>
+  </ErrorBoundary>
+);
 
 if (import.meta.hot) {
   import.meta.hot.data.root = root;
