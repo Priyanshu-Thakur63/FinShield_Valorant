@@ -6,7 +6,7 @@ export default function AlertTable({ rows, selectedId, onSelect, compact = false
   return (
     <div className="alerts-table-wrap">
       <table className={`alerts-table ${compact ? '' : 'monitor-table'}`}>
-        <thead><tr><th>ADVERTISEMENT / SOURCE</th><th>RISK</th><th>KEY INDICATORS</th><th>SAMPLE SCORE</th><th>DETECTED</th><th /></tr></thead>
+        <thead><tr><th>ADVERTISEMENT / SOURCE</th><th>RISK</th><th>KEY INDICATORS</th><th>CONFIDENCE SCORE</th><th>DETECTED</th><th /></tr></thead>
         <tbody>
           {rows.map((alert) => <tr key={alert.id} className={selectedId === alert.id ? 'selected-row' : ''} onClick={() => onSelect(alert)} tabIndex={0} onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); onSelect(alert); } }}>
             <td><div className="ad-cell"><PlatformIcon alert={alert} /><div className="ad-copy"><b>{alert.handle}{!compact && <small>{alert.id}</small>}</b><span>{alert.text}</span></div></div></td>

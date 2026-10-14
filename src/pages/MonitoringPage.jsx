@@ -12,9 +12,9 @@ export default function MonitoringPage({ alerts, selected, onSelect, query, onQu
     return text.includes(query.toLowerCase()) && (riskFilter === 'All risks' || alert.risk === riskFilter.toLowerCase()) && (platformFilter === 'All platforms' || alert.platform === platformFilter);
   }), [alerts, query, riskFilter, platformFilter]);
   const stats = [
-    { label: 'SAMPLE ADS IN FEED', value: alerts.length, detail: 'Synthetic local records' },
-    { label: 'REQUIRING REVIEW', value: alerts.filter((alert) => ['critical', 'high'].includes(alert.risk)).length, detail: 'Critical and high sample labels', warning: true },
-    { label: 'SAMPLE PLATFORMS', value: new Set(alerts.map((alert) => alert.platform)).size, detail: 'Illustrative source categories' },
+    { label: 'ADS IN FEED', value: alerts.length, detail: 'Live database records' },
+    { label: 'REQUIRING REVIEW', value: alerts.filter((alert) => ['critical', 'high'].includes(alert.risk)).length, detail: 'Critical and high risk alerts', warning: true },
+    { label: 'MONITORED PLATFORMS', value: new Set(alerts.map((alert) => alert.platform)).size, detail: 'Social & messaging feeds' },
     { label: 'FILTERED RESULTS', value: rows.length, detail: 'Based on your filters' },
   ];
 
@@ -23,7 +23,7 @@ export default function MonitoringPage({ alerts, selected, onSelect, query, onQu
   }
 
   return <section className="workspace-page">
-    <PageHeading eyebrow="MONITORING FEED / PUBLIC-SOURCE EXAMPLES" title="Ad" mutedTitle="monitoring" description="Review synthetic advertisements, matched indicators, and sample risk assessments." action="Export results" onAction={downloadResults}/>
+    <PageHeading eyebrow="MONITORING FEED / PUBLIC SOURCES" title="Ad" mutedTitle="monitoring" description="Review active advertisements, matched threat indicators, and AI risk confidence scoring." action="Export results" onAction={downloadResults}/>
     <StatCards items={stats}/>
     <section className="panel workspace-table-panel">
       <div className="workspace-toolbar"><div><div className="section-kicker">PUBLIC ADVERTISEMENT FEED</div><h2>Detected advertisements <span className="alert-count">{rows.length}</span></h2></div><div className="workspace-filters">
@@ -32,7 +32,7 @@ export default function MonitoringPage({ alerts, selected, onSelect, query, onQu
         <select aria-label="Filter by risk" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}><option>All risks</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
       </div></div>
       <AlertTable rows={rows} selectedId={selected?.id} onSelect={onSelect} reviewedIds={reviewedIds}/>
-      <div className="table-footer"><span>Showing <b>{rows.length}</b> of <b>{alerts.length}</b> sample advertisements</span><span className="demo-caption">Illustrative public-source data</span></div>
+      <div className="table-footer"><span>Showing <b>{rows.length}</b> of <b>{alerts.length}</b> monitored advertisements</span><span className="demo-caption">Live public threat stream</span></div>
     </section>
     <WorkspaceNote>Only publicly available advertisements are represented. Risk assessments are decision support and require analyst verification.</WorkspaceNote>
   </section>;

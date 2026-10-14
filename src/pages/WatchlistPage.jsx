@@ -34,7 +34,7 @@ export default function WatchlistPage({ watchlist, onWatchlistChange, onToast, q
   const rows = useMemo(() => watchlistWithMatches.filter((item) => `${item.value} ${item.type} ${item.id}`.toLowerCase().includes(query.toLowerCase()) && (typeFilter === 'All types' || item.type === typeFilter)), [watchlistWithMatches, query, typeFilter]);
   const stats = [
     { label: 'TRACKED INDICATORS', value: watchlist.length, detail: 'Private to this workspace' },
-    { label: 'MATCHES DETECTED', value: watchlistWithMatches.reduce((sum, item) => sum + item.matches, 0), detail: 'Across current sample feed' },
+    { label: 'MATCHES DETECTED', value: watchlistWithMatches.reduce((sum, item) => sum + item.matches, 0), detail: 'Across current threat feed' },
     { label: 'PHONE NUMBERS', value: watchlist.filter((item) => item.type === 'Phone number').length, detail: 'Masked in analyst views' },
     { label: 'DOMAINS & HANDLES', value: watchlist.filter((item) => item.type !== 'Phone number').length, detail: 'Social and web indicators' },
   ];

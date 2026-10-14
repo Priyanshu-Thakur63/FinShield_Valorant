@@ -33,7 +33,7 @@ export default function CampaignDetailsPage({ campaignId, onCampaignId, campaign
         <section className="panel campaign-case-summary">
           <div className="case-summary-head"><div><div className="section-kicker">{campaign.id} · POTENTIAL CAMPAIGN</div><h2>{campaign.name}</h2></div><RiskPill risk={campaign.risk}/></div>
           <p>{campaign.pattern}. These synthetic links should be validated independently before any action.</p>
-          <div className="campaign-case-facts"><div><small>RISK INDICATOR</small><b>Sample score · {campaign.confidence}/100</b></div><div><small>RELATED ADVERTISEMENTS</small><b>{campaign.posts} sample posts</b></div><div><small>PLATFORMS OBSERVED</small><b>{campaign.platform}</b></div><div><small>FIRST OBSERVED</small><b>{campaign.firstSeen}</b></div></div>
+          <div className="campaign-case-facts"><div><small>RISK INDICATOR</small><b>Confidence score · {campaign.confidence}/100</b></div><div><small>RELATED ADVERTISEMENTS</small><b>{campaign.posts} sample posts</b></div><div><small>PLATFORMS OBSERVED</small><b>{campaign.platform}</b></div><div><small>FIRST OBSERVED</small><b>{campaign.firstSeen}</b></div></div>
           <label className="form-label case-status-field">Investigation status<select className="case-status" value={record.status} onChange={(event) => { update({ status: event.target.value }); onToast(`Campaign status changed to ${event.target.value}.`); }}><option>Open</option><option>In review</option><option>Closed</option></select></label>
         </section>
         <section className="panel campaign-evidence">

@@ -13,7 +13,7 @@ export default function ReportsPage({ onToast }) {
     reportType: 'FinShield AI synthetic campaign summary',
     generatedAt: new Date().toISOString(),
     disclaimer: 'Frontend demo only. All records are illustrative, not live intelligence or verified evidence.',
-    campaign: { id: campaign.id, name: campaign.name, risk: campaign.risk, sampleReferenceScore: campaign.confidence, platform: campaign.platform, pattern: campaign.pattern },
+    campaign: { id: campaign.id, name: campaign.name, risk: campaign.risk, riskConfidenceScore: campaign.confidence, platform: campaign.platform, pattern: campaign.pattern },
     sampleAdvertisements: related.map(({ id, text, handle, platform, risk, tags, evidence }) => ({ id, text, handle, platform, risk, tags, evidence })),
   };
   function downloadJson() {
@@ -30,7 +30,7 @@ export default function ReportsPage({ onToast }) {
       <section className="panel report-preview" id="printable-report"><div className="report-preview-toolbar"><div><div className="section-kicker">REPORT PREVIEW · DEMO RECORD</div><h2>Campaign intelligence brief</h2></div><button className="table-export" onClick={() => window.print()}><Icon name="file" size={13}/> Print report</button></div><div className="report-paper">
         <div className="report-brand"><span className="brand-mark"><i/><i/><i/><i/></span><b>FinShield AI</b><small>DETECT. DEFEND. PROTECT.</small></div>
         <div className="section-kicker">POTENTIAL CAMPAIGN · {campaign.id}</div><h2>{campaign.name}</h2><p className="report-disclaimer">Synthetic campaign overview generated for demonstration. This is not verified intelligence.</p>
-        <div className="report-metrics"><div><small>RISK INDICATOR</small><b>{campaign.risk}</b></div><div><small>SAMPLE REFERENCE SCORE</small><b>{campaign.confidence}/100</b></div><div><small>OBSERVED PLATFORMS</small><b>{campaign.platform}</b></div></div>
+        <div className="report-metrics"><div><small>RISK INDICATOR</small><b>{campaign.risk}</b></div><div><small>RISK CONFIDENCE SCORE</small><b>{campaign.confidence}/100</b></div><div><small>OBSERVED PLATFORMS</small><b>{campaign.platform}</b></div></div>
         <div className="report-section"><h3>Summary</h3><p>{campaign.pattern}. The grouping is a potential relationship for analyst review, not a finding of wrongdoing.</p></div>
         <div className="report-section"><h3>Advertisement records</h3>{related.map((item) => <p key={item.id}><b>{item.id} · {item.handle}</b><br/>{item.text}</p>)}</div>
         <div className="report-section"><h3>Review guidance</h3><p>Independently verify source context and corroborate each shared indicator before making a decision.</p></div>

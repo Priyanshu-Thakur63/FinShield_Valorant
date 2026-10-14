@@ -35,17 +35,31 @@ SUSPICIOUS_PHRASES = {
     'gift card': 25,
     'fake email': 22,
     'crypto': 15,
+    'loan': 18,
+    'kredit': 20,
+    'paisa': 18,
+    'quick cash': 24,
+    'urgent money': 22,
+    'daily payout': 22,
+    'upi transfer': 20,
+    'hacked': 25,
+    'stolen': 25,
+    'recovery scam': 32,
+    'fake check': 28,
+    'check scam': 28,
+    'imessage': 18,
+    'evite': 15,
 }
 
 TAG_RULES = [
     (['bank account', 'sell your account', 'rent account', 'current account', 'cheque book', 'mule'], 'Bank account sale'),
-    (['instant transfer', 'fast transfer', 'immediate payout'], 'Instant transfer'),
+    (['instant transfer', 'fast transfer', 'immediate payout', 'upi transfer', 'wire transfer'], 'Instant transfer'),
     (['atm card', 'debit card', 'credit card', 'cards available'], 'Card credentials'),
     (['no paperwork', 'without pan', 'without cibil'], 'No paperwork KYC bypass'),
-    (['earn up to', 'daily return', 'guaranteed profit', 'part-time task', 'crypto task'], 'Account recruitment / Task scam'),
-    (['instant loan', 'personal loan assistance'], 'Unverified loan assistance'),
-    (['investment scam', 'scam', 'fraud', 'phishing'], 'Fraud & Scam Scheme'),
-    (['transfers out of my bank', 'wire transfer', 'unauthorized transaction'], 'Unauthorized Transfer / Theft'),
+    (['earn up to', 'daily return', 'guaranteed profit', 'part-time task', 'crypto task', 'daily payout'], 'Account recruitment / Task scam'),
+    (['instant loan', 'personal loan assistance', 'loan', 'kredit', 'paisa', 'quick cash'], 'Unverified loan assistance'),
+    (['investment scam', 'scam', 'fraud', 'phishing', 'recovery scam', 'fake check', 'check scam'], 'Fraud & Scam Scheme'),
+    (['transfers out of my bank', 'unauthorized transaction', 'stolen', 'hacked'], 'Unauthorized Transfer / Theft'),
     (['gift card'], 'Gift Card Payment Coercion'),
 ]
 
@@ -54,13 +68,6 @@ def analyze_text(text: str, platform: str = "Unknown", source_url: str = "") -> 
     
     # 1. Match phrases
     matched_phrases = [phrase for phrase in SUSPICIOUS_PHRASES if phrase in normalized]
-    
-    # Base score
-    score = sum(SUSPICIOUS_PHRASES[p] for p in matched_phrases)
-    if not matched_phrases:
-        score = 12
-    else:
-        score = min(98, score + 10)
     
     # 2. Extract Entities
     phones = re.findall(r'(?:\+?91[\-\s]?)?[6-9]\d{4}[\s\-]?\d{5}|\+?\d[\d\s().-]{7,}\d', text)
@@ -73,8 +80,24 @@ def analyze_text(text: str, platform: str = "Unknown", source_url: str = "") -> 
     if source_url:
         urls.append(source_url)
     cleaned_urls = list(set([u.strip() for u in urls if u.strip()]))
-    
-    # 3. Derive Tags
+
+    # 3. Entity presence boosts
+    entity_boost = 0
+    if cleaned_phones:
+        entity_boost += min(16, len(cleaned_phones) * 8)
+    if cleaned_upis:
+        entity_boost += min(18, len(cleaned_upis) * 9)
+    if any(k in normalized for k in ['t.me/', 'telegram', 'wa.me/', 'whatsapp']):
+        entity_boost += 12
+
+    # 4. Compute Real Heuristic Score
+    raw_score = sum(SUSPICIOUS_PHRASES[p] for p in matched_phrases) + entity_boost
+    if not matched_phrases and not entity_boost:
+        # Base baseline score for content in financial monitoring
+        score = 18
+    else:
+        score = min(98, max(28, raw_score))
+    # 5. Derive Tags
     tags = []
     for keywords, tag in TAG_RULES:
         if any(kw in normalized for kw in keywords):

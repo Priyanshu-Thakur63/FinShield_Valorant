@@ -3,8 +3,8 @@ import { alerts, campaignClusters } from '../data/seedData.js';
 export const campaignGraph = {
   nodes: [
     { id: 'campaign-019', type: 'campaign', position: { x: 390, y: 200 }, data: { label: 'Potential campaign · CL-019', detail: '7 linked posts · Telegram' } },
-    { id: 'ad-2841', type: 'ad', position: { x: 80, y: 70 }, data: { alertId: 'ADV-2841', label: 'ADV-2841 · Telegram', detail: 'Critical · sample score 98/100' } },
-    { id: 'ad-2842', type: 'ad', position: { x: 80, y: 315 }, data: { alertId: 'ADV-2842', label: 'ADV-2842 · Telegram', detail: 'High · sample score 88/100' } },
+    { id: 'ad-2841', type: 'ad', position: { x: 80, y: 70 }, data: { alertId: 'ADV-2841', label: 'ADV-2841 · Telegram', detail: 'Critical · confidence score 98/100' } },
+    { id: 'ad-2842', type: 'ad', position: { x: 80, y: 315 }, data: { alertId: 'ADV-2842', label: 'ADV-2842 · Telegram', detail: 'High · confidence score 88/100' } },
     { id: 'phone', type: 'phone', position: { x: 360, y: 40 }, data: { label: 'Shared phone', detail: '+91 98765 4•••2' } },
     { id: 'url', type: 'url', position: { x: 695, y: 65 }, data: { label: 'Shared domain', detail: 'quickcash.example' } },
     { id: 'upi', type: 'upi', position: { x: 690, y: 300 }, data: { label: 'Payment ID', detail: 'quickcash@upi' } },

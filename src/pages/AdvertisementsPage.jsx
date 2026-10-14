@@ -3,8 +3,6 @@ import Icon from '../components/Icon.jsx';
 import { EmptyState, PageHeading, PlatformIcon, RiskPill, SearchBox, WorkspaceNote } from '../components/shared.jsx';
 import usePersistentState from '../hooks/usePersistentState.js';
 
-const scoreFor = (risk) => ({ critical: 98, high: 91, medium: 64, low: 28 })[risk] ?? 0;
-
 export default function AdvertisementsPage({ alerts, selected, onSelect, query, onQuery, onToast }) {
   const [risk, setRisk] = useState('All risks');
   const [platform, setPlatform] = useState('All platforms');
@@ -21,8 +19,11 @@ export default function AdvertisementsPage({ alerts, selected, onSelect, query, 
         && (platform === 'All platforms' || alert?.platform === platform);
     });
     return filtered.sort((left, right) => {
-      const leftValue = sort.key === 'score' ? scoreFor(left.risk) : left[sort.key];
-      const rightValue = sort.key === 'score' ? scoreFor(right.risk) : right[sort.key];
+      const leftValue = sort.key === 'score' ? (left?.confidence ?? 0) : left[sort.key];
+      const rightValue = sort.key === 'score' ? (right?.confidence ?? 0) : right[sort.key];
+      if (sort.key === 'score') {
+        return sort.direction === 'asc' ? leftValue - rightValue : rightValue - leftValue;
+      }
       const comparison = String(leftValue).localeCompare(String(rightValue), undefined, { numeric: true });
       return sort.direction === 'asc' ? comparison : -comparison;
     });
@@ -51,7 +52,7 @@ export default function AdvertisementsPage({ alerts, selected, onSelect, query, 
         <th>INDICATORS</th><th>STATUS</th><th>DETAILS</th>
       </tr></thead><tbody>{visibleRows.map((alert) => <tr key={alert.id} className={selected?.id === alert.id ? 'selected-row' : ''} onClick={() => onSelect(alert)} tabIndex="0" onKeyDown={(event) => { if (event.key === 'Enter') onSelect(alert); }}>
         <td><div className="ad-cell"><PlatformIcon alert={alert}/><div className="ad-copy"><b>{alert.id} <small>{alert.handle}</small></b><span>{alert.text}</span></div></div></td>
-        <td>{alert.platform}</td><td><div className="explorer-score"><RiskPill risk={alert.risk}/><b>{scoreFor(alert.risk)}</b></div></td>
+        <td>{alert.platform}</td><td><div className="explorer-score"><RiskPill risk={alert.risk}/><b>{alert.confidence ?? 0}</b></div></td>
         <td><div className="indicator-tags">{alert.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}</div></td>
         <td><select className={`case-status ${(statuses[alert.id] || 'Needs review') === 'Closed' ? 'closed' : ''}`} aria-label={`Investigation status for ${alert.id}`} value={statuses[alert.id] || 'Needs review'} onClick={(event) => event.stopPropagation()} onChange={(event) => { event.stopPropagation(); setStatuses((current) => ({ ...current, [alert.id]: event.target.value })); onToast(`${alert.id} marked ${event.target.value.toLowerCase()}.`); }}><option>Needs review</option><option>In progress</option><option>Closed</option></select></td>
         <td><button className="row-open" aria-label={`View details for ${alert.id}`} onClick={(event) => { event.stopPropagation(); onSelect(alert); }}><Icon name="external" size={15}/></button></td>

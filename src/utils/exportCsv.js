@@ -17,7 +17,7 @@ export function exportAlerts(rows) {
     { label: 'Platform', value: (row) => row.platform },
     { label: 'Handle', value: (row) => row.handle },
     { label: 'Risk', value: (row) => row.risk },
-    { label: 'Sample score', value: (row) => `${row.confidence}/100` },
+    { label: 'Confidence score', value: (row) => `${row.confidence}/100` },
     { label: 'Detected', value: (row) => row.time },
     { label: 'Indicators', value: (row) => row.tags.join('; ') },
     { label: 'URL', value: (row) => row.url },
