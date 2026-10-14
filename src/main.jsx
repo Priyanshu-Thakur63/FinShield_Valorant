@@ -280,9 +280,9 @@ function App() {
   const detailProps = {
     alert: selected,
     preferences,
-    isReviewed: reviewedIds.includes(selected.id),
-    onInvestigate: () => createInvestigation(selected),
-    onReview: () => toggleReview(selected),
+    isReviewed: selected ? reviewedIds.includes(selected.id) : false,
+    onInvestigate: () => selected && createInvestigation(selected),
+    onReview: () => selected && toggleReview(selected),
     onOpenSource: () => setToast('External source link opening...'),
   };
 

@@ -9,17 +9,21 @@ export default function AlertsPage({ alerts, onSelectAlert, onNavigate, onToast 
   const [severity, setSeverity] = useState('All severities');
   const [view, setView] = useState('All alerts');
   const [statuses, setStatuses] = usePersistentState('finshield:alert-status:v1', {});
-  const feed = useMemo(() => alerts.map((alert, index) => ({
-    id: `ALT-${String(301 + index).padStart(4, '0')}`,
-    alert,
-    severity: alert.risk,
-    title: alert.risk === 'critical' ? 'Urgent account-sale advertisement detected' : `${alert.risk[0].toUpperCase()}${alert.risk.slice(1)}-risk financial promotion flagged`,
-    description: `${alert.handle} · ${alert.tags.join(' and ')}`,
-    timestamp: alert.time,
-  })).filter((item) => `${item.id} ${item.title} ${item.description} ${item.alert.id}`.toLowerCase().includes(query.toLowerCase())
+  const safeAlerts = Array.isArray(alerts) ? alerts : [];
+  const feed = useMemo(() => safeAlerts.map((alert, index) => {
+    const risk = alert?.risk || 'low';
+    return {
+      id: `ALT-${String(301 + index).padStart(4, '0')}`,
+      alert,
+      severity: risk,
+      title: risk === 'critical' ? 'Urgent account-sale advertisement detected' : `${risk[0].toUpperCase()}${risk.slice(1)}-risk financial promotion flagged`,
+      description: `${alert?.handle || 'User'} · ${(alert?.tags || []).join(' and ')}`,
+      timestamp: alert?.time || 'Recently',
+    };
+  }).filter((item) => `${item.id} ${item.title} ${item.description} ${item.alert?.id || ''}`.toLowerCase().includes(query.toLowerCase())
     && (severity === 'All severities' || item.severity === severity.toLowerCase())
-    && (view === 'All alerts' || (view === 'Unread' ? !readIds.includes(item.id) : readIds.includes(item.id)))), [alerts, query, readIds, severity, view]);
-  const unread = alerts.length - readIds.length;
+    && (view === 'All alerts' || (view === 'Unread' ? !readIds.includes(item.id) : readIds.includes(item.id)))), [safeAlerts, query, readIds, severity, view]);
+  const unread = Math.max(0, safeAlerts.length - readIds.length);
 
   function toggleRead(id) {
     setReadIds((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);

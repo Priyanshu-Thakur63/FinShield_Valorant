@@ -31,7 +31,7 @@ export default function MonitoringPage({ alerts, selected, onSelect, query, onQu
         <select aria-label="Filter by platform" value={platformFilter} onChange={(event) => setPlatformFilter(event.target.value)}><option>All platforms</option>{[...new Set(alerts.map((alert) => alert.platform))].map((platform) => <option key={platform}>{platform}</option>)}</select>
         <select aria-label="Filter by risk" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value)}><option>All risks</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select>
       </div></div>
-      <AlertTable rows={rows} selectedId={selected.id} onSelect={onSelect} reviewedIds={reviewedIds}/>
+      <AlertTable rows={rows} selectedId={selected?.id} onSelect={onSelect} reviewedIds={reviewedIds}/>
       <div className="table-footer"><span>Showing <b>{rows.length}</b> of <b>{alerts.length}</b> sample advertisements</span><span className="demo-caption">Illustrative public-source data</span></div>
     </section>
     <WorkspaceNote>Only publicly available advertisements are represented. Risk assessments are decision support and require analyst verification.</WorkspaceNote>

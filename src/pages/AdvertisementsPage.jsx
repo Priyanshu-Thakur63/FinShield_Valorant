@@ -13,11 +13,12 @@ export default function AdvertisementsPage({ alerts, selected, onSelect, query, 
   const [statuses, setStatuses] = usePersistentState('finshield:ad-status:v1', {});
   const pageSize = 5;
   const rows = useMemo(() => {
-    const filtered = alerts.filter((alert) => {
-      const haystack = `${alert.id} ${alert.handle} ${alert.platform} ${alert.text} ${alert.phone} ${alert.url} ${alert.tags.join(' ')}`.toLowerCase();
+    const safeAlerts = Array.isArray(alerts) ? alerts : [];
+    const filtered = safeAlerts.filter((alert) => {
+      const haystack = `${alert?.id || ''} ${alert?.handle || ''} ${alert?.platform || ''} ${alert?.text || ''} ${alert?.phone || ''} ${alert?.url || ''} ${(alert?.tags || []).join(' ')}`.toLowerCase();
       return haystack.includes(query.toLowerCase())
-        && (risk === 'All risks' || alert.risk === risk.toLowerCase())
-        && (platform === 'All platforms' || alert.platform === platform);
+        && (risk === 'All risks' || (alert?.risk || '').toLowerCase() === risk.toLowerCase())
+        && (platform === 'All platforms' || alert?.platform === platform);
     });
     return filtered.sort((left, right) => {
       const leftValue = sort.key === 'score' ? scoreFor(left.risk) : left[sort.key];

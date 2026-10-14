@@ -38,8 +38,8 @@ export default function OverviewPage({ alerts, selected, onSelect, cases, onNavi
     </section>
     <section className="panel alerts-panel">
       <div className="alerts-heading" id="alerts-heading"><div><div className="section-kicker">SAMPLE RECORDS NEEDING REVIEW</div><h2>Priority alerts <span className="alert-count">{recentAlerts.length}</span></h2></div><div className="alerts-tools"><button className="text-link view-alerts" onClick={() => onNavigate('Alerts center')}>View all <Icon name="arrow" size={14}/></button></div></div>
-      <AlertTable rows={recentAlerts.slice(0, 5)} selectedId={selected.id} onSelect={onSelect} compact reviewedIds={reviewedIds}/>
-      <div className="table-footer"><span>Showing <b>{Math.min(5, recentAlerts.length)}</b> of <b>{alerts.length}</b> sample alerts · {cases.filter((item) => item.status !== 'Closed').length} open investigations</span><button onClick={() => onInvestigate(selected)}>Investigate selected <Icon name="arrow" size={14}/></button></div>
+      <AlertTable rows={recentAlerts.slice(0, 5)} selectedId={selected?.id} onSelect={onSelect} compact reviewedIds={reviewedIds}/>
+      <div className="table-footer"><span>Showing <b>{Math.min(5, recentAlerts.length)}</b> of <b>{alerts.length}</b> sample alerts · {cases.filter((item) => item.status !== 'Closed').length} open investigations</span><button onClick={() => selected && onInvestigate(selected)} disabled={!selected}>Investigate selected <Icon name="arrow" size={14}/></button></div>
     </section>
     <footer className="page-footer"><span>FinShield AI <i>·</i> Intelligence that protects</span><span><i className="footer-pulse"/> Monitoring 3,053 public sources <b>Last updated just now</b></span></footer>
   </>;
