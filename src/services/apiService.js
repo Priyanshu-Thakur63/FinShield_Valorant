@@ -108,4 +108,23 @@ export const apiService = {
     if (!res.ok) throw new Error(`Inspection failed: ${res.statusText}`);
     return await res.json();
   },
+
+  // Dedicated URL Phishing Scanner
+  scanUrl: (url, probeLive = true) =>
+    request('/url-scanner/scan', {
+      method: 'POST',
+      body: JSON.stringify({ url, probeLive }),
+    }),
+
+  // Recently Scanned & Classified URLs
+  getRecentScannedUrls: (limit = 25) =>
+    request(`/url-scanner/recent?limit=${limit}`),
+
+  // Web Scraper for newly published URLs
+  scrapeNewlyPublishedUrls: (limit = 5) =>
+    request('/url-scanner/scrape-feed', {
+      method: 'POST',
+      body: JSON.stringify({ limit }),
+    }),
 };
+

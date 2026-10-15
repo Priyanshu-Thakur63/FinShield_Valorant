@@ -3,11 +3,13 @@ import Icon from '../components/Icon.jsx';
 import { PageHeading, RiskPill, WorkspaceNote } from '../components/shared.jsx';
 import { analyzeAdvertisement } from '../services/mockAnalysisService.js';
 import { extractTextFromImage } from '../services/ocrService.js';
+import UrlScannerSection from '../components/UrlScannerSection.jsx';
 
 const exampleText = 'Verified bank accounts available. Full access, instant transfer enabled. Message today. quickcash@upi';
 const stopWords = new Set(['the', 'and', 'for', 'with', 'from', 'this', 'that', 'your', 'today', 'available']);
 
 export default function AnalysisPage({ onToast, alerts, onSelectAlert, onNavigate }) {
+  const [mainTab, setMainTab] = useState('url-scanner'); // 'url-scanner' | 'ad-intel'
   const [text, setText] = useState('');
   const [platform, setPlatform] = useState('Telegram');
   const [sourceUrl, setSourceUrl] = useState('');
@@ -119,7 +121,53 @@ export default function AnalysisPage({ onToast, alerts, onSelectAlert, onNavigat
   }
 
   return <section className="workspace-page">
-    <PageHeading eyebrow="INTELLIGENCE TOOLS / AI SCANNER" title="Advertisement" mutedTitle="analysis & OCR" description="Scan text, URLs, and banner screenshots with live OCR to detect mule accounts and illicit financial operations."/>
+    <PageHeading eyebrow="INTELLIGENCE TOOLS / AI SCANNER" title="Intelligence & Threat" mutedTitle="analysis scanner" description="Scan text, URLs, and banner screenshots with live OCR & URL web scrapers to detect phishing and illicit financial operations."/>
+
+    {/* Primary Mode Switcher */}
+    <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem' }}>
+      <button
+        type="button"
+        onClick={() => setMainTab('url-scanner')}
+        style={{
+          padding: '0.65rem 1.2rem',
+          borderRadius: '8px',
+          fontSize: '0.88rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: mainTab === 'url-scanner' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.03)',
+          border: mainTab === 'url-scanner' ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
+          color: mainTab === 'url-scanner' ? '#818cf8' : '#94a3b8',
+        }}
+      >
+        <Icon name="scan" size={16} /> 🌐 Real vs Phishing URL Scanner & Web Scraper
+      </button>
+      <button
+        type="button"
+        onClick={() => setMainTab('ad-intel')}
+        style={{
+          padding: '0.65rem 1.2rem',
+          borderRadius: '8px',
+          fontSize: '0.88rem',
+          fontWeight: 700,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          background: mainTab === 'ad-intel' ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.03)',
+          border: mainTab === 'ad-intel' ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.1)',
+          color: mainTab === 'ad-intel' ? '#818cf8' : '#94a3b8',
+        }}
+      >
+        <Icon name="search" size={16} /> 📝 Advertisement & OCR Intelligence Scanner
+      </button>
+    </div>
+
+    {mainTab === 'url-scanner' ? (
+      <UrlScannerSection onToast={onToast} onSelectAlert={onSelectAlert} onNavigate={onNavigate} />
+    ) : (
     <div className="analysis-layout">
       <form className="panel analysis-form" onSubmit={submit}>
         <div className="section-kicker">ANALYSIS INPUT</div>
@@ -238,6 +286,7 @@ export default function AnalysisPage({ onToast, alerts, onSelectAlert, onNavigat
         </div>}
       </section>
     </div>
+    )}
     <WorkspaceNote icon="shield">Multi-class threat categorization and scoring engine aligned with FinShield intelligence taxonomies.</WorkspaceNote>
   </section>;
 }

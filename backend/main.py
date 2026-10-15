@@ -394,10 +394,19 @@ def delete_from_watchlist(entry_id: str):
     return {"id": entry_id, "deleted": True}
 
 from ingestion.apify_unified import run_unified_scrape
+from pipeline.url_scanner import scan_url
+from ingestion.url_feed_scraper import run_url_ingestion_and_scan
 
 class ScrapeRequest(BaseModel):
     platform: Optional[str] = "all"
     keywords: Optional[List[str]] = None
+    limit: Optional[int] = 5
+
+class UrlScanRequest(BaseModel):
+    url: str
+    probeLive: Optional[bool] = True
+
+class UrlFeedScrapeRequest(BaseModel):
     limit: Optional[int] = 5
 
 # 8. Live Ingestion Triggers
@@ -421,6 +430,52 @@ def trigger_scrape(body: ScrapeRequest):
     )
     return result
 
+# 9. URL Threat Scanner & Web Scraper Endpoints
+@app.post("/api/v1/url-scanner/scan")
+def scan_single_url(body: UrlScanRequest):
+    res = scan_url(body.url, probe_live=body.probeLive if body.probeLive is not None else True)
+    
+    # Store into scanned_urls
+    try:
+        record_id = f"URL-{uuid.uuid4().hex[:6].upper()}"
+        signals_list = [s["description"] for s in res.get("signals", [])]
+        execute("""
+            INSERT INTO scanned_urls (
+                id, url, domain, classification, risk_score, target_brand,
+                is_live, http_status, page_title, detected_forms, threat_signals, source, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
+        """, (
+            record_id, res["url"], res["domain"], res["classification"], res["risk_score"],
+            res["target_brand"], res["is_live"], res["http_status"], res["page_title"],
+            res.get("detected_forms", []), signals_list, "On-Demand Scanner"
+        ))
+        res["id"] = record_id
+    except Exception as e:
+        print(f"Error persisting scan: {e}")
+        
+    return res
+
+@app.get("/api/v1/url-scanner/recent")
+def list_recent_scanned_urls(limit: int = 50):
+    rows = query_all("""
+        SELECT id, url, domain, classification, risk_score, target_brand,
+               is_live, http_status, page_title, detected_forms, threat_signals, source, created_at
+        FROM scanned_urls
+        ORDER BY created_at DESC
+        LIMIT %s
+    """, (limit,))
+    return rows
+
+@app.post("/api/v1/url-scanner/scrape-feed")
+def trigger_url_feed_scrape(body: UrlFeedScrapeRequest):
+    """
+    Executes web scrapers to discover newly published & reported URLs from live feeds
+    (OpenPhish, Reddit communities, and Web threat intelligence), classifies them as
+    Real/Legitimate vs Phishing vs Suspicious, and persists to PostgreSQL.
+    """
+    return run_url_ingestion_and_scan(limit_per_source=body.limit or 5)
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
