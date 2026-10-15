@@ -166,3 +166,23 @@ CREATE TABLE IF NOT EXISTS watchlist_entries (
 );
 
 CREATE INDEX IF NOT EXISTS idx_watchlist_normalized ON watchlist_entries(normalized_value);
+
+-- 14. Scanned URLs (URL Threat Scanner)
+CREATE TABLE IF NOT EXISTS scanned_urls (
+    id VARCHAR(64) PRIMARY KEY,
+    url VARCHAR(1024) NOT NULL,
+    domain VARCHAR(255),
+    classification VARCHAR(50) DEFAULT 'SUSPICIOUS',
+    risk_score INTEGER DEFAULT 0,
+    target_brand VARCHAR(100),
+    is_live BOOLEAN DEFAULT FALSE,
+    http_status INTEGER,
+    page_title VARCHAR(512),
+    detected_forms TEXT[],
+    threat_signals TEXT[],
+    source VARCHAR(100) DEFAULT 'On-Demand Scanner',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_scanned_urls_created ON scanned_urls(created_at);
+CREATE INDEX IF NOT EXISTS idx_scanned_urls_class ON scanned_urls(classification);
