@@ -300,24 +300,140 @@ def list_campaigns():
 
 @app.get("/api/v1/campaigns/{campaign_id}/graph")
 def get_campaign_graph(campaign_id: str):
-    edges = query_all("SELECT * FROM campaign_graph_edges WHERE campaign_id = %s", (campaign_id,))
-    nodes = [
-        {"id": "campaign-019", "type": "campaign", "position": {"x": 390, "y": 200}, "data": {"label": f"Potential campaign · {campaign_id}", "detail": "Linked posts & indicators"}},
-        {"id": "ad-2841", "type": "ad", "position": {"x": 80, "y": 70}, "data": {"alertId": "ADV-2841", "label": "ADV-2841 · Telegram", "detail": "Critical · score 98/100"}},
-        {"id": "ad-2842", "type": "ad", "position": {"x": 80, "y": 315}, "data": {"alertId": "ADV-2842", "label": "ADV-2842 · Telegram", "detail": "High · score 88/100"}},
-        {"id": "phone", "type": "phone", "position": {"x": 360, "y": 40}, "data": {"label": "Shared phone", "detail": "+91 98765 4•••2"}},
-        {"id": "url", "type": "url", "position": {"x": 695, "y": 65}, "data": {"label": "Shared domain", "detail": "quickcash.example"}},
-        {"id": "upi", "type": "upi", "position": {"x": 690, "y": 300}, "data": {"label": "Payment ID", "detail": "quickcash@upi"}},
-        {"id": "fingerprint", "type": "image", "position": {"x": 390, "y": 395}, "data": {"label": "Image fingerprint", "detail": "sha256: 8f2a…1c9e"}}
-    ]
-    formatted_edges = [{
-        "id": e["id"],
-        "source": e["source_node"],
-        "target": e["target_node"],
-        "label": e["edge_label"]
-    } for e in edges]
+    camp = query_one("SELECT * FROM campaign_clusters WHERE id = %s", (campaign_id,))
+    if not camp:
+        camp = query_one("SELECT * FROM campaign_clusters LIMIT 1")
+    if not camp:
+        return {"nodes": [], "edges": []}
 
-    return {"nodes": nodes, "edges": formatted_edges}
+    c_id = camp["id"]
+    camp_node_id = f"campaign-{c_id}"
+
+    # 1. Real linked advertisements
+    ads = query_all("""
+        SELECT a.id, a.platform, a.author_handle, a.content_text, a.risk_level, 
+               a.confidence_score, a.source_url, a.asking_amount, a.time_label, a.created_at
+        FROM advertisements a
+        JOIN campaign_ads ca ON ca.advertisement_id = a.id
+        WHERE ca.campaign_id = %s
+        ORDER BY a.confidence_score DESC
+    """, (c_id,))
+
+    nodes = []
+    edges = []
+
+    # 2. Add Center Campaign Node
+    nodes.append({
+        "id": camp_node_id,
+        "type": "campaign",
+        "position": {"x": 390, "y": 200},
+        "data": {
+            "kind": "campaign",
+            "id": c_id,
+            "label": f"Potential campaign · {c_id}",
+            "detail": f"{camp['name']} · {camp['confidence']}% AI confidence",
+            "risk": camp["risk"],
+            "confidence": camp["confidence"],
+            "platform": camp["platform"],
+            "pattern": camp["pattern"]
+        }
+    })
+
+    # 3. Add Advertisement Nodes (Left arc)
+    y_step_ad = 105
+    y_start_ad = max(30, 200 - ((len(ads) - 1) * y_step_ad) // 2)
+    for i, ad in enumerate(ads):
+        ad_node_id = f"ad-{ad['id']}"
+        nodes.append({
+            "id": ad_node_id,
+            "type": "ad",
+            "position": {"x": 80, "y": y_start_ad + i * y_step_ad},
+            "data": {
+                "kind": "ad",
+                "alertId": ad["id"],
+                "label": f"{ad['id']} · {ad['platform']}",
+                "detail": f"{ad['risk_level'].title()} · score {ad['confidence_score']}/100",
+                "risk": ad["risk_level"],
+                "confidence": ad["confidence_score"],
+                "platform": ad["platform"],
+                "handle": ad["author_handle"] or "@unknown",
+                "text": ad["content_text"],
+                "amount": ad["asking_amount"] or "Not detected"
+            }
+        })
+        edges.append({
+            "id": f"e-{ad_node_id}-{camp_node_id}",
+            "source": ad_node_id,
+            "target": camp_node_id,
+            "label": "correlated in"
+        })
+
+    # 4. Fetch real extracted indicators for these linked ads
+    ad_id_list = [a["id"] for a in ads]
+    if ad_id_list:
+        indicators = query_all("""
+            SELECT indicator_type, raw_value, count(*) as cnt
+            FROM extracted_indicators
+            WHERE advertisement_id = ANY(%s)
+            GROUP BY indicator_type, raw_value
+            ORDER BY cnt DESC, indicator_type ASC
+            LIMIT 6
+        """, (ad_id_list,))
+    else:
+        indicators = []
+
+    y_step_ind = 95
+    y_start_ind = max(40, 200 - ((len(indicators) - 1) * y_step_ind) // 2)
+
+    for j, ind in enumerate(indicators):
+        itype = ind["indicator_type"].lower()
+        val = ind["raw_value"]
+        ind_node_id = f"ind-{j}-{itype}"
+        disp_val = val if len(val) < 28 else (val[:25] + "…")
+
+        node_kind = itype if itype in ["phone", "url", "upi", "tag", "image"] else "url"
+        node_label = f"Shared {itype}" if itype in ["phone", "upi"] else f"{itype.title()}: {disp_val}"
+
+        if itype == "phone":
+            pos = {"x": 390, "y": 40}
+        elif itype == "upi":
+            pos = {"x": 690, "y": 300}
+        elif itype == "image":
+            pos = {"x": 390, "y": 395}
+        else:
+            pos = {"x": 695, "y": y_start_ind + j * y_step_ind}
+
+        nodes.append({
+            "id": ind_node_id,
+            "type": node_kind,
+            "position": pos,
+            "data": {
+                "kind": node_kind,
+                "label": node_label,
+                "detail": f"{val} · observed in {ind['cnt']} ads",
+                "rawValue": val,
+                "type": itype,
+                "count": ind["cnt"]
+            }
+        })
+
+        edge_label = "shared contact" if itype == "phone" else (
+            "shared domain" if itype == "url" else (
+                "payment ID" if itype == "upi" else (
+                    "visual fingerprint" if itype == "image" else "signature tag"
+                )
+            )
+        )
+
+        edges.append({
+            "id": f"e-{camp_node_id}-{ind_node_id}",
+            "source": camp_node_id,
+            "target": ind_node_id,
+            "label": edge_label
+        })
+
+    return {"nodes": nodes, "edges": edges}
+
 
 # 6. Investigations
 @app.get("/api/v1/investigations")
@@ -475,7 +591,358 @@ def trigger_url_feed_scrape(body: UrlFeedScrapeRequest):
     """
     return run_url_ingestion_and_scan(limit_per_source=body.limit or 5)
 
+# 10. Threat Analytics & Real Metrics
+@app.get("/api/v1/analytics/overview")
+def get_analytics_overview(
+    range: str = Query("7d", description="Time window: 24h, 7d, 30d, all"),
+    platform: Optional[str] = Query("all", description="Platform filter: all, Reddit, Instagram, Facebook, Open web, Telegram")
+):
+    p_filter = ""
+    params = []
+    if platform and platform.lower() != "all":
+        p_filter = "AND platform ILIKE %s"
+        params.append(f"%{platform}%")
+
+    # 1. Summary Metrics
+    ad_stats = query_one(f"""
+        SELECT 
+            count(*) as total,
+            count(CASE WHEN risk_level IN ('critical', 'high') THEN 1 END) as high_risk,
+            count(CASE WHEN risk_level != 'low' THEN 1 END) as suspicious,
+            count(CASE WHEN risk_level = 'critical' THEN 1 END) as critical,
+            COALESCE(round(avg(confidence_score), 1), 0) as avg_conf,
+            max(COALESCE(created_at, posted_at)) as latest_time
+        FROM advertisements
+        WHERE 1=1 {p_filter}
+    """, params)
+
+    url_stats = query_one("""
+        SELECT 
+            count(*) as total,
+            count(CASE WHEN classification = 'PHISHING' THEN 1 END) as phishing,
+            count(CASE WHEN classification = 'LEGITIMATE' THEN 1 END) as legitimate,
+            COALESCE(round(avg(risk_score), 1), 0) as avg_risk
+        FROM scanned_urls
+    """)
+
+    ind_count = query_one("SELECT count(*) as cnt FROM extracted_indicators")["cnt"]
+    camp_count = query_one("SELECT count(*) as cnt FROM campaign_clusters")["cnt"]
+    inv_stats = query_one("SELECT count(*) as total, count(CASE WHEN status != 'Closed' THEN 1 END) as open_cnt FROM investigations")
+
+    total_ads = ad_stats["total"] if ad_stats else 0
+    high_risk = ad_stats["high_risk"] if ad_stats else 0
+    high_share = round((high_risk / total_ads * 100), 1) if total_ads > 0 else 0
+    latest_dt = ad_stats.get("latest_time") if ad_stats else None
+    latest_time_iso = latest_dt.isoformat() if isinstance(latest_dt, datetime.datetime) else None
+
+    summary = {
+        "totalAds": total_ads,
+        "suspiciousAds": ad_stats["suspicious"] if ad_stats else 0,
+        "criticalAds": ad_stats["critical"] if ad_stats else 0,
+        "highRiskShare": high_share,
+        "avgConfidence": float(ad_stats["avg_conf"]) if ad_stats else 0.0,
+        "phishingUrls": url_stats["phishing"] if url_stats else 0,
+        "legitimateUrls": url_stats["legitimate"] if url_stats else 0,
+        "indicators": ind_count,
+        "campaigns": camp_count,
+        "openInvestigations": inv_stats["open_cnt"] if inv_stats else 0,
+        "latestThreatTime": latest_time_iso
+    }
+
+    # 2. Time Trend Series
+    range_clean = range.lower()
+    if "24" in range_clean or ("day" in range_clean and "7" not in range_clean and "30" not in range_clean and "90" not in range_clean):
+        trend_sql = f"""
+            WITH hour_series AS (
+                SELECT generate_series(
+                    date_trunc('hour', NOW() - INTERVAL '23 hours'),
+                    date_trunc('hour', NOW()),
+                    '1 hour'::interval
+                ) as hr
+            ),
+            ad_counts AS (
+                SELECT 
+                    date_trunc('hour', created_at) as hr,
+                    count(*) as total,
+                    count(CASE WHEN risk_level IN ('critical', 'high') THEN 1 END) as suspicious,
+                    count(CASE WHEN risk_level = 'critical' THEN 1 END) as critical
+                FROM advertisements
+                WHERE created_at >= NOW() - INTERVAL '24 hours' {p_filter}
+                GROUP BY date_trunc('hour', created_at)
+            ),
+            url_counts AS (
+                SELECT 
+                    date_trunc('hour', created_at) as hr,
+                    count(CASE WHEN classification = 'PHISHING' THEN 1 END) as phishing
+                FROM scanned_urls
+                WHERE created_at >= NOW() - INTERVAL '24 hours'
+                GROUP BY date_trunc('hour', created_at)
+            )
+            SELECT 
+                to_char(hs.hr, 'HH12 AM') as label,
+                to_char(hs.hr, 'Mon DD, HH24:00') as full_label,
+                to_char(hs.hr, 'YYYY-MM-DD HH24:00') as sort_key,
+                COALESCE(ac.total, 0) as total,
+                COALESCE(ac.suspicious, 0) as suspicious,
+                COALESCE(ac.critical, 0) as critical,
+                COALESCE(uc.phishing, 0) as phishing
+            FROM hour_series hs
+            LEFT JOIN ad_counts ac ON ac.hr = hs.hr
+            LEFT JOIN url_counts uc ON uc.hr = hs.hr
+            ORDER BY hs.hr ASC
+        """
+        trend_rows = query_all(trend_sql, params)
+    elif "30" in range_clean:
+        trend_sql = f"""
+            WITH date_series AS (
+                SELECT generate_series(
+                    CURRENT_DATE - INTERVAL '29 days',
+                    CURRENT_DATE,
+                    '1 day'::interval
+                )::date as dt
+            ),
+            ad_counts AS (
+                SELECT 
+                    created_at::date as dt,
+                    count(*) as total,
+                    count(CASE WHEN risk_level IN ('critical', 'high') THEN 1 END) as suspicious,
+                    count(CASE WHEN risk_level = 'critical' THEN 1 END) as critical
+                FROM advertisements
+                WHERE created_at >= CURRENT_DATE - INTERVAL '29 days' {p_filter}
+                GROUP BY created_at::date
+            ),
+            url_counts AS (
+                SELECT 
+                    created_at::date as dt,
+                    count(CASE WHEN classification = 'PHISHING' THEN 1 END) as phishing
+                FROM scanned_urls
+                WHERE created_at >= CURRENT_DATE - INTERVAL '29 days'
+                GROUP BY created_at::date
+            )
+            SELECT 
+                to_char(ds.dt, 'Mon DD') as label,
+                to_char(ds.dt, 'Mon DD, YYYY') as full_label,
+                to_char(ds.dt, 'YYYY-MM-DD') as sort_key,
+                COALESCE(ac.total, 0) as total,
+                COALESCE(ac.suspicious, 0) as suspicious,
+                COALESCE(ac.critical, 0) as critical,
+                COALESCE(uc.phishing, 0) as phishing
+            FROM date_series ds
+            LEFT JOIN ad_counts ac ON ac.dt = ds.dt
+            LEFT JOIN url_counts uc ON uc.dt = ds.dt
+            ORDER BY ds.dt ASC
+        """
+        trend_rows = query_all(trend_sql, params)
+    elif "all" in range_clean or "90" in range_clean:
+        trend_sql = f"""
+            SELECT 
+                to_char(COALESCE(posted_at, created_at)::date, 'Mon DD') as label,
+                to_char(COALESCE(posted_at, created_at)::date, 'Mon DD, YYYY') as full_label,
+                to_char(COALESCE(posted_at, created_at)::date, 'YYYY-MM-DD') as sort_key,
+                count(*) as total,
+                count(CASE WHEN risk_level IN ('critical', 'high') THEN 1 END) as suspicious,
+                count(CASE WHEN risk_level = 'critical' THEN 1 END) as critical,
+                0 as phishing
+            FROM advertisements
+            WHERE 1=1 {p_filter}
+            GROUP BY sort_key, label, full_label
+            ORDER BY sort_key ASC
+        """
+        trend_rows = query_all(trend_sql, params)
+    else:
+        # Default 7 days
+        trend_sql = f"""
+            WITH date_series AS (
+                SELECT generate_series(
+                    CURRENT_DATE - INTERVAL '6 days',
+                    CURRENT_DATE,
+                    '1 day'::interval
+                )::date as dt
+            ),
+            ad_counts AS (
+                SELECT 
+                    created_at::date as dt,
+                    count(*) as total,
+                    count(CASE WHEN risk_level IN ('critical', 'high') THEN 1 END) as suspicious,
+                    count(CASE WHEN risk_level = 'critical' THEN 1 END) as critical
+                FROM advertisements
+                WHERE created_at >= CURRENT_DATE - INTERVAL '6 days' {p_filter}
+                GROUP BY created_at::date
+            ),
+            url_counts AS (
+                SELECT 
+                    created_at::date as dt,
+                    count(CASE WHEN classification = 'PHISHING' THEN 1 END) as phishing
+                FROM scanned_urls
+                WHERE created_at >= CURRENT_DATE - INTERVAL '6 days'
+                GROUP BY created_at::date
+            )
+            SELECT 
+                to_char(ds.dt, 'Dy') as label,
+                to_char(ds.dt, 'Mon DD') as full_label,
+                to_char(ds.dt, 'YYYY-MM-DD') as sort_key,
+                COALESCE(ac.total, 0) as total,
+                COALESCE(ac.suspicious, 0) as suspicious,
+                COALESCE(ac.critical, 0) as critical,
+                COALESCE(uc.phishing, 0) as phishing
+            FROM date_series ds
+            LEFT JOIN ad_counts ac ON ac.dt = ds.dt
+            LEFT JOIN url_counts uc ON uc.dt = ds.dt
+            ORDER BY ds.dt ASC
+        """
+        trend_rows = query_all(trend_sql, params)
+
+    # 3. Risk Distribution
+    risk_color_map = {
+        "critical": "#ee817f",
+        "high": "#eab569",
+        "medium": "#e7d474",
+        "low": "#84c999"
+    }
+    risk_raw = query_all(f"""
+        SELECT risk_level as name, count(*) as value
+        FROM advertisements
+        WHERE 1=1 {p_filter}
+        GROUP BY risk_level
+    """, params)
+    risk_dict = {r["name"].lower(): r["value"] for r in risk_raw}
+    risk_dist = []
+    for r_level in ["critical", "high", "medium", "low"]:
+        val = risk_dict.get(r_level, 0)
+        pct = round((val / total_ads * 100), 1) if total_ads > 0 else 0
+        risk_dist.append({
+            "name": r_level,
+            "value": val,
+            "percentage": pct,
+            "fill": risk_color_map.get(r_level, "#778188")
+        })
+
+    # 4. Platform Distribution
+    platform_rows = query_all("""
+        SELECT platform as name, count(*) as total,
+               count(CASE WHEN risk_level IN ('critical', 'high') THEN 1 END) as high_risk,
+               count(CASE WHEN risk_level = 'critical' THEN 1 END) as critical,
+               count(CASE WHEN risk_level = 'medium' THEN 1 END) as medium,
+               count(CASE WHEN risk_level = 'low' THEN 1 END) as low,
+               COALESCE(round(avg(confidence_score), 1), 0) as avg_confidence
+        FROM advertisements
+        GROUP BY platform
+        ORDER BY total DESC
+    """)
+    platforms = [{
+        "name": r["name"],
+        "total": r["total"],
+        "highRisk": r["high_risk"],
+        "critical": r["critical"],
+        "medium": r["medium"],
+        "low": r["low"],
+        "avgConfidence": float(r["avg_confidence"])
+    } for r in platform_rows]
+
+    # 5. Target Brand Distribution (from scanned_urls)
+    brand_rows = query_all("""
+        SELECT target_brand as name, count(*) as total,
+               count(CASE WHEN classification = 'PHISHING' THEN 1 END) as phishing,
+               count(CASE WHEN classification = 'LEGITIMATE' THEN 1 END) as legitimate,
+               COALESCE(round(avg(risk_score), 1), 0) as avg_risk
+        FROM scanned_urls
+        WHERE target_brand IS NOT NULL AND target_brand != ''
+        GROUP BY target_brand
+        ORDER BY phishing DESC, total DESC
+    """)
+    brands = [{
+        "name": r["name"],
+        "total": r["total"],
+        "phishing": r["phishing"],
+        "legitimate": r["legitimate"],
+        "avgRisk": float(r["avg_risk"])
+    } for r in brand_rows]
+
+    # 6. Frequent Indicators & Signatures
+    ind_rows = query_all("""
+        SELECT raw_value as name, indicator_type as type, count(*) as count
+        FROM extracted_indicators
+        GROUP BY raw_value, indicator_type
+        ORDER BY count DESC
+        LIMIT 6
+    """)
+    max_ind = max([r["count"] for r in ind_rows], default=1)
+    indicators = [{
+        "name": r["name"],
+        "type": r["type"],
+        "count": r["count"],
+        "pct": round((r["count"] / max_ind) * 100, 1)
+    } for r in ind_rows]
+
+    # 7. Campaign Clusters Impact
+    cluster_rows = query_all("""
+        SELECT c.id, c.name, c.platform, c.risk, c.confidence, count(ca.advertisement_id) as posts
+        FROM campaign_clusters c
+        LEFT JOIN campaign_ads ca ON ca.campaign_id = c.id
+        GROUP BY c.id
+        ORDER BY c.confidence DESC
+    """)
+    max_cluster_posts = max([r["posts"] for r in cluster_rows], default=1)
+    clusters = [{
+        "id": r["id"],
+        "name": r["name"],
+        "platform": r["platform"],
+        "risk": r["risk"],
+        "confidence": r["confidence"],
+        "posts": max(r["posts"], 1),
+        "pct": round((max(r["posts"], 1) / max(max_cluster_posts, 1)) * 100, 1)
+    } for r in cluster_rows]
+
+    # 8. Investigation Status
+    inv_rows = query_all("SELECT status, count(*) as count FROM investigations GROUP BY status")
+    inv_dict = {r["status"]: r["count"] for r in inv_rows}
+    inv_status = [
+        {"status": "Open", "value": inv_dict.get("Open", 0)},
+        {"status": "In progress", "value": inv_dict.get("In progress", 0)},
+        {"status": "Closed", "value": inv_dict.get("Closed", 0)}
+    ]
+
+    # 9. Recent Real Threat Stream (Latest 6)
+    recent_rows = query_all(f"""
+        SELECT id, platform, author_handle, risk_level, confidence_score, asking_amount,
+               content_text, COALESCE(created_at, posted_at) as created_at
+        FROM advertisements
+        WHERE 1=1 {p_filter}
+        ORDER BY COALESCE(created_at, posted_at) DESC
+        LIMIT 6
+    """, params)
+    recent_threats = []
+    for r in recent_rows:
+        dt = r["created_at"]
+        time_str = dt.strftime("%d %b, %H:%M") if isinstance(dt, datetime.datetime) else "Recently"
+        recent_threats.append({
+            "id": r["id"],
+            "platform": r["platform"],
+            "handle": r["author_handle"] or "@unknown",
+            "risk": r["risk_level"],
+            "confidence": r["confidence_score"],
+            "amount": r["asking_amount"] or "Not specified",
+            "snippet": (r["content_text"][:95] + "…") if len(r["content_text"]) > 95 else r["content_text"],
+            "time": time_str
+        })
+
+    return {
+        "status": "success",
+        "timeRange": range,
+        "selectedPlatform": platform,
+        "summary": summary,
+        "trend": trend_rows,
+        "riskDistribution": risk_dist,
+        "platformDistribution": platforms,
+        "brandDistribution": brands,
+        "topIndicators": indicators,
+        "campaignClusters": clusters,
+        "investigationStatus": inv_status,
+        "recentThreats": recent_threats
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
 

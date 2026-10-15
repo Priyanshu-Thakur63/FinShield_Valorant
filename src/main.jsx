@@ -257,8 +257,8 @@ function App() {
     if (activeNav === 'Advertisement analysis') return <AnalysisPage {...common}/>;
     if (activeNav === 'Advertisement explorer') return <AdvertisementsPage {...common}/>;
     if (activeNav === 'Alerts center') return <AlertsPage {...common}/>;
-    if (activeNav === 'Analytics') return <AnalyticsPage {...common} cases={cases}/>;
-    if (activeNav === 'Campaign DNA') return <CampaignDNAPage {...common} onCampaignId={setCampaignId}/>;
+    if (activeNav === 'Analytics') return <AnalyticsPage {...common} cases={cases} onSyncLive={handleSyncLive} isSyncing={isSyncing} onReload={loadBackendData}/>;
+    if (activeNav === 'Campaign DNA') return <CampaignDNAPage {...common} campaignId={campaignId} onCampaignId={setCampaignId}/>;
     if (activeNav === 'Campaign investigations') return <CampaignDetailsPage {...common} campaignId={campaignId} onCampaignId={setCampaignId} campaignRecords={campaignRecords} onCampaignRecords={setCampaignRecords}/>;
     if (activeNav === 'Reports') return <ReportsPage {...common}/>;
     if (activeNav === 'Settings') return <SettingsPage {...common} preferences={preferences} onSavePreferences={setPreferences} workspaceSettings={workspaceSettings} onSaveWorkspaceSettings={setWorkspaceSettings} onResetDemo={resetDemoData}/>;

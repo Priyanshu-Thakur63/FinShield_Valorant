@@ -27,7 +27,7 @@ export default function RiskDistribution({ alerts = [] }) {
             <Tooltip content={<DistributionTooltip/>}/>
           </PieChart>
         </ResponsiveContainer>
-        <div className="donut-center"><b>{total}</b><span>SAMPLE</span></div>
+        <div className="donut-center"><b>{total}</b><span>TOTAL</span></div>
       </div>
       <div className="risk-legend">{distribution.map((item) => <span key={item.name}><i style={{ background: item.color }}/>{item.name}<b>{total > 0 ? Math.round((item.value / total) * 100) : 0}%</b></span>)}</div>
     </div>

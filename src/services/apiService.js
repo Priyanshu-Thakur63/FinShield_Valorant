@@ -126,5 +126,14 @@ export const apiService = {
       method: 'POST',
       body: JSON.stringify({ limit }),
     }),
+
+  // Threat Analytics Dashboard Real Aggregations
+  getAnalyticsOverview: (range = '7d', platform = 'all') => {
+    const query = new URLSearchParams();
+    if (range) query.append('range', range);
+    if (platform && platform !== 'all') query.append('platform', platform);
+    return request(`/analytics/overview?${query.toString()}`);
+  },
 };
+
 
