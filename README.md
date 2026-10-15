@@ -197,6 +197,36 @@ Financial institutions and regulatory authorities face an explosion of decentral
 
 ---
 
+## 📊 Pitch Deck & Presentation (8 Slides)
+
+FinShield AI includes a **professional 8-slide pitch deck** designed specifically for hackathon evaluation, executive reviews, and jury presentations:
+
+1. **PowerPoint Deck (`.pptx`)**:
+   - Location: [`presentation/FinShield_AI_Pitch_Deck.pptx`](presentation/FinShield_AI_Pitch_Deck.pptx)
+   - Format: 16:9 Widescreen, Dark Cybersecurity theme (`#0B0E14` Obsidian, `#D8FB72` Electric Lime), real live-system screenshots, and data cards.
+   - Regenerate anytime with: `python presentation/build_deck.py`
+
+2. **Interactive Browser Deck (`index.html`)**:
+   - Location: [`presentation/index.html`](presentation/index.html)
+   - Features: Fullscreen presentation mode (`F`), keyboard navigation (Arrow keys / Space), live screenshot gallery, and 1-click **Export to PDF** button.
+   - Open locally in any browser or serve via:
+     ```bash
+     # Simply double-click presentation/index.html or run:
+     npx serve presentation
+     ```
+
+### Slide Outline:
+- **Slide 1**: Title & Executive Vision (IEEE SKIT Hackathon 2026 • Team Valorant)
+- **Slide 2**: The Crisis: Decentralized Financial Cybercrime & Mule Siphoning
+- **Slide 3**: Unified 4-Tier Defensive Architecture (Ingest → NLP → URL Probe → Graph)
+- **Slide 4**: Real-Time Threat Analytics Dashboard (Live PostgreSQL Telemetry)
+- **Slide 5**: Signature Innovation: Campaign DNA Knowledge Graph (React Flow)
+- **Slide 6**: Real-Time Deep URL Threat Scanner & DOM Credential Sniffer
+- **Slide 7**: SOC Operations: Incident Triage to Legal Takedown Evidence
+- **Slide 8**: Business Impact, Production Stack & Deployment Roadmap
+
+---
+
 ## 📡 Key API Endpoints
 
 | Method | Endpoint | Description |
