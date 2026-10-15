@@ -24,6 +24,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+def auto_init_database():
+    """Automatically verify/create schema and seed initial database on cloud boot."""
+    try:
+        schema_path = os.path.join(os.path.dirname(__file__), "schema.sql")
+        if os.path.exists(schema_path):
+            with open(schema_path, "r", encoding="utf-8") as f:
+                schema_sql = f.read()
+            with get_db() as conn:
+                with conn.cursor() as cur:
+                    cur.execute(schema_sql)
+            print("[Auto-Init] Database schema created/verified.")
+            
+            # Check if advertisements table has data
+            count = query_one("SELECT COUNT(*) as cnt FROM advertisements")
+            if not count or count.get("cnt", 0) == 0:
+                print("[Auto-Init] Seeding initial dataset...")
+                from ingestion.synthetic_seed import seed_database
+                seed_database()
+                print("[Auto-Init] Initial dataset seeded successfully!")
+    except Exception as e:
+        print("[Auto-Init] Notice during DB initialization:", e)
+
 # ----------------- Models -----------------
 class StatusUpdate(BaseModel):
     status: str
